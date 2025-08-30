@@ -310,11 +310,32 @@
             
             // Add delete button event listener
             const deleteBtn = cardEl.querySelector('.delete-card');
-            deleteBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                deleteCard(e, card.id, card.title);
-            });
+            if (deleteBtn) {
+                deleteBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('Delete button clicked for card:', card.id);
+                    
+                    if (confirm(`Delete "${card.title}"?`)) {
+                        console.log('User confirmed delete');
+                        
+                        // Remove from DOM
+                        cardEl.remove();
+                        
+                        // Remove from data
+                        allCards = allCards.filter(c => c.id != card.id);
+                        
+                        // Save
+                        saveData();
+                        
+                        console.log('Card deleted successfully');
+                    }
+                });
+                
+                console.log('Delete button event listener added for card:', card.id);
+            } else {
+                console.error('Delete button not found for card:', card.id);
+            }
             
             // Card click handlers
             let clickTimeout;
@@ -392,6 +413,7 @@
             document.getElementById('cardModal').style.display = 'block';
         }
         
+        // Keep this function for context menu
         function deleteCard(event, cardId, cardTitle) {
             event.preventDefault();
             event.stopPropagation();
