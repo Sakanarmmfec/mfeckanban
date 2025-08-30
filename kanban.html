@@ -530,34 +530,69 @@
         
         // Save data with visual feedback
         async function saveData() {
+            console.log('Saving to localStorage...');
             // Save to localStorage as fallback
             localStorage.setItem('kanban-cards', JSON.stringify(allCards));
             localStorage.setItem('kanban-lists', JSON.stringify(lists));
             
             // Try to save to cloud if configured
             if (storageConfig.type !== 'localStorage') {
-                const cloudData = { lists, cards: allCards, timestamp: new Date().toISOString() };
-                await saveToCloud(cloudData);
+                console.log('Saving to cloud storage...');
+                const cloudData = { 
+                    lists, 
+                    cards: allCards, 
+                    timestamp: new Date().toISOString(),
+                    totalCards: allCards.length
+                };
+                
+                const success = await saveToCloud(cloudData);
+                if (success) {
+                    console.log('✅ Cloud save successful');
+                } else {
+                    console.error('❌ Cloud save failed');
+                }
             }
             
             showSaveIndicator();
-            console.log('Data saved:', { lists, cards: allCards.length });
+            console.log('Data saved:', { lists: lists.length, cards: allCards.length });
         }
         
         async function saveDataWithVerification() {
+            console.log('=== SAVING DATA ===');
+            console.log('Cards to save:', allCards.length);
+            console.log('Storage type:', storageConfig.type);
+            
             await saveData();
             
-            // Verify save
+            // Verify localStorage save
             setTimeout(() => {
                 const savedCards = localStorage.getItem('kanban-cards');
                 if (savedCards) {
                     const parsed = JSON.parse(savedCards);
-                    console.log('Verification - Cards in localStorage:', parsed.length);
-                    console.log('Verification - Cards in memory:', allCards.length);
+                    console.log('✅ localStorage - Cards saved:', parsed.length);
+                    console.log('✅ Memory - Cards in array:', allCards.length);
                 } else {
-                    console.error('Verification failed - No cards in localStorage');
+                    console.error('❌ localStorage - No cards found');
                 }
             }, 100);
+            
+            // Verify JSONBin save if configured
+            if (storageConfig.type === 'jsonbin' && storageConfig.apiUrl) {
+                setTimeout(async () => {
+                    console.log('=== VERIFYING JSONBIN ===');
+                    try {
+                        const cloudData = await loadFromJSONBin();
+                        if (cloudData && cloudData.cards) {
+                            console.log('✅ JSONBin - Cards verified:', cloudData.cards.length);
+                            console.log('✅ JSONBin - Last updated:', cloudData.lastUpdated);
+                        } else {
+                            console.error('❌ JSONBin - No data found');
+                        }
+                    } catch (error) {
+                        console.error('❌ JSONBin verification failed:', error);
+                    }
+                }, 1000);
+            }
         }
         
 
@@ -761,13 +796,17 @@
                 
                 if (response.ok) {
                     const result = await response.json();
-                    console.log('✅ JSONBin save SUCCESS:', result);
+                    console.log('✅ JSONBin save SUCCESS');
+                    console.log('- Record ID:', result.record?.id || 'N/A');
+                    console.log('- Cards saved:', payload.cards?.length || 0);
+                    console.log('- Timestamp:', payload.timestamp);
                     return true;
                 } else {
                     const errorText = await response.text();
                     console.error('❌ JSONBin save FAILED:');
                     console.error('Status:', response.status, response.statusText);
                     console.error('Error:', errorText);
+                    console.error('Payload size:', JSON.stringify(payload).length, 'characters');
                     
                     // Show specific error messages
                     if (response.status === 401) {
@@ -808,7 +847,10 @@
                 
                 if (response.ok) {
                     const result = await response.json();
-                    console.log('✅ JSONBin load SUCCESS:', result);
+                    console.log('✅ JSONBin load SUCCESS');
+                    console.log('- Cards loaded:', result.record?.cards?.length || 0);
+                    console.log('- Lists loaded:', result.record?.lists?.length || 0);
+                    console.log('- Last updated:', result.record?.timestamp);
                     return result.record;
                 } else {
                     const errorText = await response.text();
