@@ -123,16 +123,22 @@
         <div class="modal-content">
             <button class="close-modal" onclick="closeConfigModal()">&times;</button>
             <div class="modal-header">
-                <h3>SharePoint Excel Configuration</h3>
+                <h3>OneDrive Excel Configuration</h3>
             </div>
             <div class="modal-body">
                 <div class="form-group">
-                    <label>SharePoint Site URL</label>
-                    <input type="text" id="siteUrl" placeholder="https://yourcompany.sharepoint.com/sites/yoursite">
+                    <label>OneDrive Folder Path</label>
+                    <input type="text" id="folderPath" placeholder="/Apps/KanbanBoard" value="/Apps/KanbanBoard">
+                    <small style="color: #666; font-size: 11px;">Folder path in your OneDrive (e.g., /Apps/KanbanBoard)</small>
                 </div>
                 <div class="form-group">
                     <label>Excel File Name</label>
                     <input type="text" id="excelFileName" placeholder="KanbanData.xlsx" value="KanbanData.xlsx">
+                </div>
+                <div class="form-group">
+                    <label>OneDrive Account</label>
+                    <input type="email" id="userEmail" placeholder="your.email@company.com">
+                    <small style="color: #666; font-size: 11px;">Your Microsoft 365 email address</small>
                 </div>
                 <div class="form-group">
                     <label>Current Status</label>
@@ -140,7 +146,7 @@
                 </div>
                 <div class="form-buttons">
                     <button type="button" class="btn btn-primary" onclick="createExcelFile()">Create Excel File</button>
-                    <button type="button" class="btn btn-secondary" onclick="testConnection()">Test Connection</button>
+                    <button type="button" class="btn btn-secondary" onclick="connectOneDrive()">Connect OneDrive</button>
                     <button type="button" class="btn btn-secondary" onclick="closeConfigModal()">Cancel</button>
                 </div>
             </div>
@@ -433,48 +439,50 @@
             localStorage.setItem('kanban-cards', JSON.stringify(allCards));
             localStorage.setItem('kanban-lists', JSON.stringify(lists));
             
-            // Try to save to Excel if configured
-            if (excelConfig.siteUrl && excelConfig.fileName) {
-                await saveToExcel();
+            // Try to save to OneDrive if configured
+            if (oneDriveConfig.userEmail && oneDriveConfig.fileName) {
+                await saveToOneDrive();
             }
             
             showSaveIndicator();
             console.log('Data saved:', { lists, cards: allCards.length });
         }
         
-        async function saveToExcel() {
+        async function saveToOneDrive() {
             try {
                 // This would integrate with Microsoft Graph API
-                console.log('Saving to Excel:', excelConfig.fileName);
+                console.log('Saving to OneDrive:', `${oneDriveConfig.folderPath}/${oneDriveConfig.fileName}`);
                 
                 // For demo purposes, just log the data that would be saved
-                const excelData = {
+                const oneDriveData = {
                     timestamp: new Date().toISOString(),
+                    account: oneDriveConfig.userEmail,
+                    path: `${oneDriveConfig.folderPath}/${oneDriveConfig.fileName}`,
                     lists: lists,
                     cards: allCards
                 };
                 
-                console.log('Excel data to save:', excelData);
+                console.log('OneDrive data to save:', oneDriveData);
                 
             } catch (error) {
-                console.error('Error saving to Excel:', error);
+                console.error('Error saving to OneDrive:', error);
             }
         }
         
-        async function loadFromExcel() {
+        async function loadFromOneDrive() {
             try {
-                if (!excelConfig.siteUrl || !excelConfig.fileName) {
+                if (!oneDriveConfig.userEmail || !oneDriveConfig.fileName) {
                     return false;
                 }
                 
                 // This would integrate with Microsoft Graph API
-                console.log('Loading from Excel:', excelConfig.fileName);
+                console.log('Loading from OneDrive:', `${oneDriveConfig.folderPath}/${oneDriveConfig.fileName}`);
                 
                 // For demo purposes, return false to use localStorage
                 return false;
                 
             } catch (error) {
-                console.error('Error loading from Excel:', error);
+                console.error('Error loading from OneDrive:', error);
                 return false;
             }
         }
@@ -488,9 +496,10 @@
         }
         
         // Configuration variables
-        let excelConfig = {
-            siteUrl: '',
+        let oneDriveConfig = {
+            folderPath: '/Apps/KanbanBoard',
             fileName: 'KanbanData.xlsx',
+            userEmail: '',
             accessToken: null
         };
         
@@ -504,26 +513,28 @@
         }
         
         function loadExcelConfig() {
-            const saved = localStorage.getItem('excel-config');
+            const saved = localStorage.getItem('onedrive-config');
             if (saved) {
-                excelConfig = { ...excelConfig, ...JSON.parse(saved) };
-                document.getElementById('siteUrl').value = excelConfig.siteUrl || '';
-                document.getElementById('excelFileName').value = excelConfig.fileName || 'KanbanData.xlsx';
+                oneDriveConfig = { ...oneDriveConfig, ...JSON.parse(saved) };
+                document.getElementById('folderPath').value = oneDriveConfig.folderPath || '/Apps/KanbanBoard';
+                document.getElementById('excelFileName').value = oneDriveConfig.fileName || 'KanbanData.xlsx';
+                document.getElementById('userEmail').value = oneDriveConfig.userEmail || '';
                 updateConfigStatus();
             }
         }
         
-        function saveExcelConfig() {
-            excelConfig.siteUrl = document.getElementById('siteUrl').value;
-            excelConfig.fileName = document.getElementById('excelFileName').value;
-            localStorage.setItem('excel-config', JSON.stringify(excelConfig));
+        function saveOneDriveConfig() {
+            oneDriveConfig.folderPath = document.getElementById('folderPath').value;
+            oneDriveConfig.fileName = document.getElementById('excelFileName').value;
+            oneDriveConfig.userEmail = document.getElementById('userEmail').value;
+            localStorage.setItem('onedrive-config', JSON.stringify(oneDriveConfig));
             updateConfigStatus();
         }
         
         function updateConfigStatus() {
             const status = document.getElementById('configStatus');
-            if (excelConfig.siteUrl && excelConfig.fileName) {
-                status.innerHTML = `✅ Configured: ${excelConfig.fileName}`;
+            if (oneDriveConfig.userEmail && oneDriveConfig.fileName) {
+                status.innerHTML = `✅ Configured: ${oneDriveConfig.userEmail}/${oneDriveConfig.folderPath}/${oneDriveConfig.fileName}`;
                 status.style.background = '#d4edda';
             } else {
                 status.innerHTML = '❌ Not configured';
@@ -532,22 +543,23 @@
         }
         
         async function createExcelFile() {
-            saveExcelConfig();
+            saveOneDriveConfig();
             
-            if (!excelConfig.siteUrl || !excelConfig.fileName) {
-                alert('Please enter SharePoint site URL and file name');
+            if (!oneDriveConfig.userEmail || !oneDriveConfig.fileName) {
+                alert('Please enter your email and file name');
                 return;
             }
             
             try {
                 // Create Excel file with sample data
                 const excelData = {
+                    timestamp: new Date().toISOString(),
                     lists: lists,
                     cards: allCards
                 };
                 
                 // For demo purposes, show success message
-                alert(`Excel file "${excelConfig.fileName}" will be created in SharePoint.\n\nNote: This requires Microsoft Graph API integration for actual SharePoint access.`);
+                alert(`Excel file "${oneDriveConfig.fileName}" will be created in OneDrive.\n\nPath: ${oneDriveConfig.folderPath}/${oneDriveConfig.fileName}\n\nNote: This requires Microsoft Graph API integration for actual OneDrive access.`);
                 
                 // Update status
                 updateConfigStatus();
@@ -558,27 +570,32 @@
             }
         }
         
-        async function testConnection() {
-            saveExcelConfig();
+        async function connectOneDrive() {
+            saveOneDriveConfig();
             
-            if (!excelConfig.siteUrl) {
-                alert('Please enter SharePoint site URL');
+            if (!oneDriveConfig.userEmail) {
+                alert('Please enter your Microsoft 365 email address');
                 return;
             }
             
             try {
-                // For demo purposes, simulate connection test
-                const isValid = excelConfig.siteUrl.includes('sharepoint.com');
+                // For demo purposes, simulate OneDrive connection
+                const isValidEmail = oneDriveConfig.userEmail.includes('@');
                 
-                if (isValid) {
-                    alert('✅ Connection test successful!\n\nNote: Actual SharePoint integration requires authentication.');
+                if (isValidEmail) {
+                    alert(`✅ OneDrive connection initiated!\n\nAccount: ${oneDriveConfig.userEmail}\nFolder: ${oneDriveConfig.folderPath}\n\nNote: Actual OneDrive integration requires Microsoft Graph API authentication.`);
+                    
+                    // Simulate successful connection
+                    oneDriveConfig.accessToken = 'demo-token';
+                    saveOneDriveConfig();
+                    updateConfigStatus();
                 } else {
-                    alert('❌ Invalid SharePoint URL format');
+                    alert('❌ Invalid email format');
                 }
                 
             } catch (error) {
-                console.error('Connection test failed:', error);
-                alert('Connection test failed. Check console for details.');
+                console.error('OneDrive connection failed:', error);
+                alert('OneDrive connection failed. Check console for details.');
             }
         }
         
@@ -589,10 +606,10 @@
                 list.innerHTML = '';
             });
             
-            // Try to load from Excel first
-            const excelLoaded = await loadFromExcel();
+            // Try to load from OneDrive first
+            const oneDriveLoaded = await loadFromOneDrive();
             
-            if (!excelLoaded) {
+            if (!oneDriveLoaded) {
                 // Fallback to localStorage
                 const savedCards = localStorage.getItem('kanban-cards');
                 if (savedCards) {
