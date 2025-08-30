@@ -33,7 +33,7 @@
   ],
   "configurableTabs": [
     {
-      "configurationUrl": "https://sakanarmmfec.github.io/mfeckanban/kanban.html",
+      "configurationUrl": "https://sakanarmmfec.github.io/mfeckanban/config.html",
       "canUpdateConfiguration": true,
       "scopes": ["team", "groupchat"]
     }
@@ -41,5 +41,6 @@
   "bots": [],
   "composeExtensions": [],
   "permissions": ["identity"],
-  "validDomains": ["sakanarmmfec.github.io"]
+  "validDomains": ["sakanarmmfec.github.io"],
+  "showLoadingIndicator": false
 }

@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DIS Kanban Board Configuration</title>
+    <script src="https://res.cdn.office.net/teams-js/2.0.0/js/MicrosoftTeams.min.js"></script>
+    <style>
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+            margin: 0; 
+            padding: 20px; 
+            background: #f5f5f5; 
+        }
+        .config-container { 
+            max-width: 500px; 
+            margin: 0 auto; 
+            background: white; 
+            padding: 30px; 
+            border-radius: 8px; 
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1); 
+        }
+        h1 { 
+            color: #0078d4; 
+            text-align: center; 
+            margin-bottom: 30px; 
+        }
+        .form-group { 
+            margin-bottom: 20px; 
+        }
+        label { 
+            display: block; 
+            margin-bottom: 8px; 
+            font-weight: 600; 
+            color: #333; 
+        }
+        input, select { 
+            width: 100%; 
+            padding: 12px; 
+            border: 2px solid #ddd; 
+            border-radius: 4px; 
+            font-size: 14px; 
+            box-sizing: border-box; 
+        }
+        input:focus, select:focus { 
+            border-color: #0078d4; 
+            outline: none; 
+        }
+        .info { 
+            background: #e3f2fd; 
+            padding: 15px; 
+            border-radius: 4px; 
+            margin-bottom: 20px; 
+            font-size: 14px; 
+        }
+        .ready { 
+            background: #d4edda; 
+            color: #155724; 
+            padding: 15px; 
+            border-radius: 4px; 
+            text-align: center; 
+            font-weight: 600; 
+        }
+    </style>
+</head>
+<body>
+    <div class="config-container">
+        <h1>📋 DIS Kanban Board Setup</h1>
+        
+        <div class="info">
+            <strong>Welcome!</strong> You're about to add DIS Kanban Board to your chat. 
+            This tool helps your team manage tasks with a simple drag-and-drop interface.
+        </div>
+
+        <div class="form-group">
+            <label for="tabName">Tab Name:</label>
+            <input type="text" id="tabName" value="DIS Kanban Board" placeholder="Enter tab name">
+        </div>
+
+        <div class="form-group">
+            <label for="teamName">Team/Project Name:</label>
+            <input type="text" id="teamName" placeholder="Enter your team or project name">
+        </div>
+
+        <div class="form-group">
+            <label for="boardType">Board Type:</label>
+            <select id="boardType">
+                <option value="project">Project Management</option>
+                <option value="sprint">Sprint Planning</option>
+                <option value="general">General Tasks</option>
+                <option value="custom">Custom</option>
+            </select>
+        </div>
+
+        <div class="ready" id="readyMessage" style="display: none;">
+            ✅ Configuration complete! Click "Save" to add the tab.
+        </div>
+    </div>
+
+    <script>
+        // Initialize Teams SDK
+        microsoftTeams.app.initialize().then(() => {
+            console.log('Teams SDK initialized');
+            
+            // Enable save button
+            microsoftTeams.pages.config.registerOnSaveHandler((saveEvent) => {
+                const tabName = document.getElementById('tabName').value || 'DIS Kanban Board';
+                const teamName = document.getElementById('teamName').value || 'Team';
+                const boardType = document.getElementById('boardType').value;
+                
+                // Configure the tab
+                microsoftTeams.pages.config.setConfig({
+                    entityId: `dis-kanban-${Date.now()}`,
+                    contentUrl: `https://sakanarmmfec.github.io/mfeckanban/kanban.html?team=${encodeURIComponent(teamName)}&type=${boardType}`,
+                    suggestedDisplayName: tabName,
+                    removeUrl: null
+                });
+                
+                saveEvent.notifySuccess();
+            });
+
+            // Set initial valid state
+            microsoftTeams.pages.config.setValidityState(true);
+            
+            // Show ready message
+            document.getElementById('readyMessage').style.display = 'block';
+        }).catch((error) => {
+            console.error('Teams SDK initialization failed:', error);
+            // Fallback for non-Teams environment
+            document.getElementById('readyMessage').style.display = 'block';
+        });
+
+        // Update validity when inputs change
+        document.getElementById('tabName').addEventListener('input', updateValidity);
+        document.getElementById('teamName').addEventListener('input', updateValidity);
+        document.getElementById('boardType').addEventListener('change', updateValidity);
+
+        function updateValidity() {
+            const tabName = document.getElementById('tabName').value.trim();
+            const isValid = tabName.length > 0;
+            
+            if (typeof microsoftTeams !== 'undefined' && microsoftTeams.pages) {
+                microsoftTeams.pages.config.setValidityState(isValid);
+            }
+        }
+    </script>
+</body>
+</html>
