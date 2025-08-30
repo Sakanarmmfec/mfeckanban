@@ -609,30 +609,62 @@
         
         // JSONBin.io integration (free tier)
         async function saveToJSONBin(data, isTest) {
-            const url = `https://api.jsonbin.io/v3/b/${storageConfig.apiUrl}`;
-            const response = await fetch(url, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Master-Key': storageConfig.accessToken || '$2a$10$...' // Free tier key
-                },
-                body: JSON.stringify(data)
-            });
-            return response.ok;
+            try {
+                const url = `https://api.jsonbin.io/v3/b/${storageConfig.apiUrl}`;
+                console.log('Saving to JSONBin:', url);
+                
+                const response = await fetch(url, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Master-Key': storageConfig.accessToken
+                    },
+                    body: JSON.stringify({
+                        appName: 'Kanban Teams App',
+                        lastUpdated: new Date().toISOString(),
+                        ...data
+                    })
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    console.log('JSONBin save success:', result);
+                    return true;
+                } else {
+                    const error = await response.text();
+                    console.error('JSONBin save error:', response.status, error);
+                    return false;
+                }
+            } catch (error) {
+                console.error('JSONBin save exception:', error);
+                return false;
+            }
         }
         
         async function loadFromJSONBin() {
-            const url = `https://api.jsonbin.io/v3/b/${storageConfig.apiUrl}/latest`;
-            const response = await fetch(url, {
-                headers: {
-                    'X-Master-Key': storageConfig.accessToken || '$2a$10$...'
+            try {
+                const url = `https://api.jsonbin.io/v3/b/${storageConfig.apiUrl}/latest`;
+                console.log('Loading from JSONBin:', url);
+                
+                const response = await fetch(url, {
+                    headers: {
+                        'X-Master-Key': storageConfig.accessToken
+                    }
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    console.log('JSONBin load success:', result);
+                    return result.record;
+                } else {
+                    const error = await response.text();
+                    console.error('JSONBin load error:', response.status, error);
+                    return null;
                 }
-            });
-            if (response.ok) {
-                const result = await response.json();
-                return result.record;
+            } catch (error) {
+                console.error('JSONBin load exception:', error);
+                return null;
             }
-            return null;
         }
         
         // GitHub Gist integration

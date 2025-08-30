@@ -1,0 +1,87 @@
+{
+  "appName": "Kanban Teams App",
+  "version": "1.0.0",
+  "lastUpdated": "2024-01-15T10:30:00.000Z",
+  "lists": [
+    "📋 Backlog",
+    "🔄 In Progress", 
+    "👀 Review",
+    "✅ Done"
+  ],
+  "cards": [
+    {
+      "id": 1,
+      "title": "User Authentication System",
+      "description": "Implement login/logout functionality with Microsoft SSO integration",
+      "assignedTo": "John Doe",
+      "dueDate": "2024-02-15",
+      "priority": "high",
+      "status": "📋 Backlog",
+      "createdAt": "2024-01-10T09:00:00.000Z",
+      "updatedAt": "2024-01-15T10:30:00.000Z"
+    },
+    {
+      "id": 2,
+      "title": "Dashboard UI Design",
+      "description": "Create responsive dashboard layout with modern UI components",
+      "assignedTo": "Jane Smith",
+      "dueDate": "2024-02-20",
+      "priority": "medium",
+      "status": "🔄 In Progress",
+      "createdAt": "2024-01-12T14:20:00.000Z",
+      "updatedAt": "2024-01-15T10:30:00.000Z"
+    },
+    {
+      "id": 3,
+      "title": "API Integration",
+      "description": "Connect frontend with backend REST APIs and handle error cases",
+      "assignedTo": "Mike Johnson",
+      "dueDate": "2024-02-10",
+      "priority": "urgent",
+      "status": "👀 Review",
+      "createdAt": "2024-01-08T11:15:00.000Z",
+      "updatedAt": "2024-01-15T10:30:00.000Z"
+    },
+    {
+      "id": 4,
+      "title": "Database Migration",
+      "description": "Migrate legacy data to new database schema",
+      "assignedTo": "Sarah Wilson",
+      "dueDate": "2024-01-30",
+      "priority": "low",
+      "status": "✅ Done",
+      "createdAt": "2024-01-05T16:45:00.000Z",
+      "updatedAt": "2024-01-15T10:30:00.000Z"
+    },
+    {
+      "id": 5,
+      "title": "Mobile Responsive Design",
+      "description": "Ensure app works perfectly on mobile devices and tablets",
+      "assignedTo": "Alex Chen",
+      "dueDate": "2024-02-25",
+      "priority": "medium",
+      "status": "📋 Backlog",
+      "createdAt": "2024-01-14T13:30:00.000Z",
+      "updatedAt": "2024-01-15T10:30:00.000Z"
+    }
+  ],
+  "settings": {
+    "teamName": "Development Team",
+    "timezone": "Asia/Bangkok",
+    "notifications": true,
+    "autoSave": true,
+    "syncInterval": 30000
+  },
+  "metadata": {
+    "totalCards": 5,
+    "activeCards": 4,
+    "completedCards": 1,
+    "contributors": [
+      "John Doe",
+      "Jane Smith", 
+      "Mike Johnson",
+      "Sarah Wilson",
+      "Alex Chen"
+    ]
+  }
+}
