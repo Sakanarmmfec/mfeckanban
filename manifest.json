@@ -27,10 +27,10 @@
     {
       "entityId": "kanban",
       "name": "Kanban Board",
-      "contentUrl": "https://your-domain.com/kanban.html",
+      "contentUrl": "https://sakanarmmfec.github.io/mfeckanban/kanban.html",
       "scopes": ["personal", "groupchat", "team"]
     }
   ],
   "permissions": ["identity", "messageTeamMembers"],
-  "validDomains": ["your-domain.com"]
+  "validDomains": ["sakanarmmfec.github.io"]
 }
