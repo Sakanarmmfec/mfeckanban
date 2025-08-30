@@ -29,8 +29,6 @@
         .label.yellow { background: #f2d600; }
         .label.orange { background: #ff9f1a; }
         .label.red { background: #eb5a46; }
-        .label.purple { background: #c377e0; }
-        .label.blue { background: #0079bf; }
         .card-meta { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #6b778c; }
         .card-date { display: flex; align-items: center; gap: 4px; }
         .card-members { display: flex; gap: 2px; }
@@ -39,6 +37,11 @@
         .add-card:hover { background: #ddd; color: #172b4d; }
         .add-list { background: rgba(255,255,255,0.24); border-radius: 3px; padding: 12px; min-width: 272px; color: white; cursor: pointer; }
         .add-list:hover { background: rgba(255,255,255,0.32); }
+        .card-actions { position: absolute; top: 6px; right: 6px; opacity: 0; transition: opacity 0.2s; z-index: 10; }
+        .card:hover .card-actions { opacity: 1; }
+        .delete-card { background: rgba(235, 90, 70, 0.9); color: white; border: none; width: 20px; height: 20px; border-radius: 50%; cursor: pointer; font-size: 12px; line-height: 1; display: flex; align-items: center; justify-content: center; }
+        .delete-card:hover { background: #eb5a46; }
+        .dragging { opacity: 0.5; transform: rotate(5deg); }
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; }
         .modal-content { background: white; margin: 50px auto; padding: 0; width: 500px; border-radius: 3px; }
         .modal-header { padding: 20px 20px 0; border-bottom: 1px solid #ddd; }
@@ -55,18 +58,12 @@
         .btn-secondary { background: #f4f5f7; color: #172b4d; }
         .btn-secondary:hover { background: #e4e6ea; }
         .close-modal { position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 20px; cursor: pointer; color: #6b778c; }
-        .card { position: relative; }
-        .card-actions { position: absolute; top: 6px; right: 6px; opacity: 0; transition: opacity 0.2s; z-index: 10; }
-        .card:hover .card-actions { opacity: 1; }
-        .delete-card { background: rgba(235, 90, 70, 0.9); color: white; border: none; width: 20px; height: 20px; border-radius: 50%; cursor: pointer; font-size: 12px; line-height: 1; display: flex; align-items: center; justify-content: center; }
-        .delete-card:hover { background: #eb5a46; }
-        .dragging { opacity: 0.5; transform: rotate(5deg); }
     </style>
 </head>
 <body>
     <div class="header">
         <h1>📋 Product Roadmap</h1>
-        <button onclick="(function(){ const name = prompt('Enter list name:'); if (name && name.trim() && !lists.includes(name)) { lists.push(name); localStorage.setItem('kanban-lists', JSON.stringify(lists)); initBoard(); } })()">+ Add List</button>
+        <button onclick="addNewList()">+ Add List</button>
     </div>
     <div class="board-container">
         <div class="board" id="board"></div>
@@ -116,162 +113,35 @@
     </div>
 
     <script>
-        microsoftTeams.app.initialize();
+        // Initialize Teams
+        try {
+            microsoftTeams.app.initialize();
+        } catch (e) {
+            console.log('Not in Teams environment');
+        }
         
+        // Global variables
         let lists = ['📋 Backlog', '🔄 In Progress', '👀 Review', '✅ Done'];
         let currentList = '';
         let editingCard = null;
         let allCards = [];
-        let teamsContext = null;
-        let accessToken = null;
         
-        // Initialize Teams context
-        async function initTeams() {
-            try {
-                await microsoftTeams.app.initialize();
-                teamsContext = await microsoftTeams.app.getContext();
-                accessToken = await microsoftTeams.authentication.getAuthToken();
-                console.log('Teams initialized:', teamsContext.team?.displayName);
-            } catch (error) {
-                console.log('Not in Teams, using localStorage');
-            }
-        }
-        
-        // SharePoint API calls
-        async function callSharePointAPI(endpoint, method = 'GET', data = null) {
-            if (!accessToken || !teamsContext?.sharePointSite?.webUrl) {
-                throw new Error('SharePoint not available');
-            }
-            
-            const url = `${teamsContext.sharePointSite.webUrl}/_api/web/lists/getbytitle('KanbanCards')/items${endpoint}`;
-            
-            const options = {
-                method,
-                headers: {
-                    'Authorization': `Bearer ${accessToken}`,
-                    'Accept': 'application/json;odata=verbose',
-                    'Content-Type': 'application/json;odata=verbose'
-                }
-            };
-            
-            if (data) {
-                options.body = JSON.stringify(data);
-            }
-            
-            const response = await fetch(url, options);
-            return response.json();
-        }
-        
-        // Create SharePoint list if not exists
-        async function createSharePointList() {
-            try {
-                const listData = {
-                    '__metadata': { 'type': 'SP.List' },
-                    'Title': 'KanbanCards',
-                    'Description': 'Kanban board cards storage',
-                    'BaseTemplate': 100
-                };
-                
-                const url = `${teamsContext.sharePointSite.webUrl}/_api/web/lists`;
-                await fetch(url, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${accessToken}`,
-                        'Accept': 'application/json;odata=verbose',
-                        'Content-Type': 'application/json;odata=verbose'
-                    },
-                    body: JSON.stringify(listData)
-                });
-            } catch (error) {
-                console.log('List might already exist');
-            }
-        }
-        
-        // Load data from SharePoint or localStorage
-        async function loadData() {
-            try {
-                // Load lists first
-                const savedLists = localStorage.getItem('kanban-lists');
-                if (savedLists) {
-                    lists = JSON.parse(savedLists);
-                }
-                
-                if (accessToken && teamsContext?.sharePointSite) {
-                    await createSharePointList();
-                    const result = await callSharePointAPI('');
-                    
-                    if (result.d?.results) {
-                        allCards = result.d.results.map(item => ({
-                            id: item.Id,
-                            title: item.Title,
-                            description: item.Description || '',
-                            assignedTo: item.AssignedTo || '',
-                            dueDate: item.DueDate || '',
-                            priority: item.Priority || '',
-                            status: item.Status || lists[0]
-                        }));
-                    }
-                } else {
-                    // Fallback to localStorage
-                    const savedCards = localStorage.getItem('kanban-cards');
-                    if (savedCards) allCards = JSON.parse(savedCards);
-                }
-            } catch (error) {
-                console.log('Loading from localStorage:', error);
-                const savedCards = localStorage.getItem('kanban-cards');
-                if (savedCards) allCards = JSON.parse(savedCards);
-            }
-        }
-        
-        // Save data to SharePoint or localStorage
-        async function saveCard(card, isUpdate = false) {
-            try {
-                if (accessToken && teamsContext?.sharePointSite) {
-                    const cardData = {
-                        '__metadata': { 'type': 'SP.Data.KanbanCardsListItem' },
-                        'Title': card.title,
-                        'Description': card.description,
-                        'AssignedTo': card.assignedTo,
-                        'DueDate': card.dueDate,
-                        'Priority': card.priority,
-                        'Status': card.status
-                    };
-                    
-                    if (isUpdate) {
-                        await callSharePointAPI(`(${card.id})`, 'PATCH', cardData);
-                    } else {
-                        const result = await callSharePointAPI('', 'POST', cardData);
-                        card.id = result.d.Id;
-                    }
-                } else {
-                    // Fallback to localStorage
-                    localStorage.setItem('kanban-cards', JSON.stringify(allCards));
-                }
-            } catch (error) {
-                console.log('Saving to localStorage:', error);
-                localStorage.setItem('kanban-cards', JSON.stringify(allCards));
-            }
-        }
-        
-        // Delete card from SharePoint
-        async function deleteCardFromStorage(cardId) {
-            try {
-                if (accessToken && teamsContext?.sharePointSite) {
-                    await callSharePointAPI(`(${cardId})`, 'DELETE');
-                } else {
-                    localStorage.setItem('kanban-cards', JSON.stringify(allCards));
-                }
-            } catch (error) {
-                console.log('Deleting from localStorage:', error);
-                localStorage.setItem('kanban-cards', JSON.stringify(allCards));
-            }
-        }
-        
+        // Initialize board
         function initBoard() {
             const board = document.getElementById('board');
             board.innerHTML = '';
-            lists.forEach(list => createList(list));
-            createAddListButton();
+            
+            // Create lists
+            lists.forEach(listName => {
+                createList(listName);
+            });
+            
+            // Add "Add List" button
+            const addListEl = document.createElement('div');
+            addListEl.className = 'add-list';
+            addListEl.innerHTML = '+ Add another list';
+            addListEl.onclick = addNewList;
+            board.appendChild(addListEl);
         }
         
         function createList(name) {
@@ -290,35 +160,24 @@
             setupDropZone(name.replace(/[^a-zA-Z0-9]/g, ''));
         }
         
-        function createAddListButton() {
-            const board = document.getElementById('board');
-            const addListEl = document.createElement('div');
-            addListEl.className = 'add-list';
-            addListEl.innerHTML = '+ Add another list';
-            addListEl.onclick = function() {
-                const name = prompt('Enter list name:');
-                if (name && name.trim() && !lists.includes(name)) {
-                    lists.push(name);
-                    localStorage.setItem('kanban-lists', JSON.stringify(lists));
-                    initBoard();
-                }
-            };
-            board.appendChild(addListEl);
-        }
-        
-        async function deleteList(name) {
-            if (confirm(`Delete "${name}" list?`)) {
-                lists = lists.filter(l => l !== name);
-                
-                // Delete cards in this list
-                const cardsToDelete = allCards.filter(c => c.status === name);
-                for (const card of cardsToDelete) {
-                    await deleteCardFromStorage(card.id);
-                }
-                
-                allCards = allCards.filter(c => c.status !== name);
+        function addNewList() {
+            const name = prompt('Enter list name:');
+            if (name && name.trim() && !lists.includes(name)) {
+                lists.push(name);
                 localStorage.setItem('kanban-lists', JSON.stringify(lists));
                 initBoard();
+                loadCards();
+            }
+        }
+        
+        function deleteList(name) {
+            if (confirm(`Delete "${name}" list?`)) {
+                lists = lists.filter(l => l !== name);
+                allCards = allCards.filter(c => c.status !== name);
+                localStorage.setItem('kanban-lists', JSON.stringify(lists));
+                localStorage.setItem('kanban-cards', JSON.stringify(allCards));
+                initBoard();
+                loadCards();
             }
         }
         
@@ -352,7 +211,7 @@
             const cardEl = document.createElement('div');
             cardEl.className = 'card';
             cardEl.draggable = true;
-            cardEl.dataset.cardId = card.id || Date.now();
+            cardEl.dataset.cardId = card.id;
             
             const labels = card.priority ? `<div class="card-labels"><div class="label ${getPriorityLabel(card.priority)}"></div></div>` : '';
             const member = card.assignedTo ? `<div class="member-avatar">${getInitials(card.assignedTo)}</div>` : '';
@@ -360,7 +219,7 @@
             
             cardEl.innerHTML = `
                 <div class="card-actions">
-                    <button class="delete-card" onclick="deleteCard(event); return false;">&times;</button>
+                    <button class="delete-card" onclick="deleteCard(event)">&times;</button>
                 </div>
                 ${labels}
                 <div class="card-title">${card.title}</div>
@@ -375,14 +234,16 @@
                     editCard(card, cardEl);
                 }
             };
+            
             cardEl.ondragstart = (e) => {
                 e.dataTransfer.setData('application/json', JSON.stringify(card));
-                e.dataTransfer.setData('text/plain', cardEl.id || Math.random().toString());
                 cardEl.classList.add('dragging');
             };
+            
             cardEl.ondragend = (e) => {
                 cardEl.classList.remove('dragging');
             };
+            
             return cardEl;
         }
         
@@ -390,23 +251,41 @@
             editingCard = { card, element };
             document.getElementById('modalTitle').textContent = 'Edit Card';
             document.getElementById('cardTitle').value = card.title;
-            document.getElementById('description').value = card.description;
-            document.getElementById('assignedTo').value = card.assignedTo;
-            document.getElementById('dueDate').value = card.dueDate;
-            document.getElementById('priority').value = card.priority;
+            document.getElementById('description').value = card.description || '';
+            document.getElementById('assignedTo').value = card.assignedTo || '';
+            document.getElementById('dueDate').value = card.dueDate || '';
+            document.getElementById('priority').value = card.priority || '';
             document.getElementById('cardModal').style.display = 'block';
+        }
+        
+        function deleteCard(event) {
+            event.preventDefault();
+            event.stopPropagation();
+            if (confirm('ลบการ์ดนี้หรือไม่?')) {
+                const card = event.target.closest('.card');
+                if (card) {
+                    const cardId = card.dataset.cardId;
+                    allCards = allCards.filter(c => c.id != cardId);
+                    localStorage.setItem('kanban-cards', JSON.stringify(allCards));
+                    card.remove();
+                }
+            }
         }
         
         function setupDropZone(listId) {
             const list = document.getElementById(listId);
+            if (!list) return;
+            
             list.ondragover = (e) => {
                 e.preventDefault();
                 e.dataTransfer.dropEffect = 'move';
                 list.style.background = '#ddd';
             };
+            
             list.ondragleave = (e) => {
                 list.style.background = '';
             };
+            
             list.ondrop = (e) => {
                 e.preventDefault();
                 list.style.background = '';
@@ -415,14 +294,14 @@
                 const newStatus = lists.find(l => l.replace(/[^a-zA-Z0-9]/g, '') === listId);
                 cardData.status = newStatus;
                 
-                // Update card status in data
+                // Remove original card
                 const draggedCard = document.querySelector('.dragging');
                 if (draggedCard) {
                     const cardId = draggedCard.dataset.cardId;
                     const cardIndex = allCards.findIndex(c => c.id == cardId);
                     if (cardIndex !== -1) {
                         allCards[cardIndex].status = newStatus;
-                        await saveCard(allCards[cardIndex], true);
+                        localStorage.setItem('kanban-cards', JSON.stringify(allCards));
                     }
                     draggedCard.remove();
                 }
@@ -432,22 +311,10 @@
             };
         }
         
-        async function deleteCard(event) {
-            event.preventDefault();
-            event.stopPropagation();
-            if (confirm('ลบการ์ดนี้หรือไม่?')) {
-                const card = event.target.closest('.card');
-                if (card) {
-                    const cardId = card.dataset.cardId;
-                    await deleteCardFromStorage(cardId);
-                    allCards = allCards.filter(c => c.id != cardId);
-                    card.remove();
-                }
-            }
-        }
-        
+        // Form submission
         document.getElementById('cardForm').onsubmit = (e) => {
             e.preventDefault();
+            
             const card = {
                 id: editingCard ? editingCard.card.id : Date.now(),
                 title: document.getElementById('cardTitle').value,
@@ -462,30 +329,33 @@
                 const cardIndex = allCards.findIndex(c => c.id === editingCard.card.id);
                 if (cardIndex !== -1) {
                     allCards[cardIndex] = card;
-                    await saveCard(card, true);
                 }
                 editingCard.element.replaceWith(createCardElement(card));
             } else {
                 allCards.push(card);
-                await saveCard(card, false);
                 const listEl = document.getElementById(currentList.replace(/[^a-zA-Z0-9]/g, ''));
-                listEl.appendChild(createCardElement(card));
+                if (listEl) {
+                    listEl.appendChild(createCardElement(card));
+                }
             }
             
+            localStorage.setItem('kanban-cards', JSON.stringify(allCards));
             closeModal();
         };
         
-        // Load cards from saved data
+        // Load cards from localStorage
         function loadCards() {
-            allCards.forEach(card => {
-                const listEl = document.getElementById(card.status.replace(/[^a-zA-Z0-9]/g, ''));
-                if (listEl) listEl.appendChild(createCardElement(card));
-            });
-        }
-        
-        // Add sample cards only if no data exists
-        function addSampleCards() {
-            if (allCards.length === 0) {
+            const savedCards = localStorage.getItem('kanban-cards');
+            if (savedCards) {
+                allCards = JSON.parse(savedCards);
+                allCards.forEach(card => {
+                    const listEl = document.getElementById(card.status.replace(/[^a-zA-Z0-9]/g, ''));
+                    if (listEl) {
+                        listEl.appendChild(createCardElement(card));
+                    }
+                });
+            } else {
+                // Add sample cards
                 const sampleCards = [
                     { id: 1, title: 'User Authentication System', assignedTo: 'John Doe', priority: 'high', dueDate: '2024-02-15', status: '📋 Backlog' },
                     { id: 2, title: 'Dashboard UI Design', assignedTo: 'Jane Smith', priority: 'medium', dueDate: '2024-02-20', status: '🔄 In Progress' },
@@ -494,8 +364,31 @@
                 ];
                 
                 allCards = sampleCards;
-                saveData();
+                localStorage.setItem('kanban-cards', JSON.stringify(allCards));
+                
+                sampleCards.forEach(card => {
+                    const listEl = document.getElementById(card.status.replace(/[^a-zA-Z0-9]/g, ''));
+                    if (listEl) {
+                        listEl.appendChild(createCardElement(card));
+                    }
+                });
             }
+        }
+        
+        // Load saved lists
+        function loadLists() {
+            const savedLists = localStorage.getItem('kanban-lists');
+            if (savedLists) {
+                lists = JSON.parse(savedLists);
+            } else {
+                localStorage.setItem('kanban-lists', JSON.stringify(lists));
+            }
+        }
+        
+        // Initialize app
+        function init() {
+            loadLists();
+            initBoard();
             loadCards();
         }
         
@@ -503,22 +396,8 @@
         document.querySelector('.modal-content').onclick = (e) => e.stopPropagation();
         document.getElementById('cardModal').onclick = closeModal;
         
-        // Initialize app
-        async function initApp() {
-            await initTeams();
-            await loadData();
-            
-            // Ensure we have default lists if none exist
-            if (lists.length === 0) {
-                lists = ['📋 Backlog', '🔄 In Progress', '👀 Review', '✅ Done'];
-                localStorage.setItem('kanban-lists', JSON.stringify(lists));
-            }
-            
-            initBoard();
-            addSampleCards();
-        }
-        
-        initApp();
+        // Start the app
+        init();
     </script>
 </body>
 </html>
