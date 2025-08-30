@@ -289,7 +289,7 @@
             
             cardEl.innerHTML = `
                 <div class="card-actions">
-                    <button class="delete-card" onclick="event.stopPropagation(); deleteCard(event);">&times;</button>
+                    <button class="delete-card">&times;</button>
                 </div>
                 ${labels}
                 <div class="card-title">${card.title}</div>
@@ -298,6 +298,14 @@
                     <div class="card-members">${member}</div>
                 </div>
             `;
+            
+            // Add delete button event listener
+            const deleteBtn = cardEl.querySelector('.delete-card');
+            deleteBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                deleteCard(e, card.id, card.title);
+            });
             
             cardEl.onclick = (e) => {
                 if (!e.target.classList.contains('delete-card')) {
@@ -346,27 +354,24 @@
             document.getElementById('cardModal').style.display = 'block';
         }
         
-        function deleteCard(event) {
+        function deleteCard(event, cardId, cardTitle) {
             event.preventDefault();
             event.stopPropagation();
             
-            const cardElement = event.target.closest('.card');
-            if (!cardElement) return;
-            
-            const cardTitle = cardElement.querySelector('.card-title')?.textContent || 'this card';
-            
             if (confirm(`Delete "${cardTitle}"?`)) {
-                const cardId = cardElement.dataset.cardId;
                 console.log('Deleting card ID:', cardId);
+                
+                // Find and remove card element
+                const cardElement = document.querySelector(`[data-card-id="${cardId}"]`);
+                if (cardElement) {
+                    cardElement.remove();
+                }
                 
                 // Remove from array
                 allCards = allCards.filter(c => c.id != cardId);
                 
                 // Save data
                 saveData();
-                
-                // Remove from DOM
-                cardElement.remove();
                 
                 console.log('Card deleted successfully');
             }
