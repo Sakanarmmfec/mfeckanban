@@ -1,0 +1,13 @@
+{
+  "name": "kanban-teams-app",
+  "version": "1.0.0",
+  "description": "Kanban board for Microsoft Teams",
+  "main": "kanban.html",
+  "scripts": {
+    "build": "echo 'No build step required'",
+    "package": "zip -r kanban-app.zip manifest.json kanban.html *.png"
+  },
+  "keywords": ["teams", "kanban", "productivity"],
+  "author": "Your Name",
+  "license": "MIT"
+}

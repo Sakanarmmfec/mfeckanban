@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Create Teams App Icons</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .icon-creator { margin: 20px 0; }
+        canvas { border: 1px solid #ccc; margin: 10px; }
+        button { padding: 10px 20px; margin: 5px; background: #0078d4; color: white; border: none; border-radius: 4px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>สร้างไอคอนสำหรับ Teams App</h1>
+    
+    <div class="icon-creator">
+        <h3>Color Icon (192x192)</h3>
+        <canvas id="colorCanvas" width="192" height="192"></canvas>
+        <button onclick="downloadIcon('color')">Download color.png</button>
+    </div>
+    
+    <div class="icon-creator">
+        <h3>Outline Icon (32x32)</h3>
+        <canvas id="outlineCanvas" width="32" height="32"></canvas>
+        <button onclick="downloadIcon('outline')">Download outline.png</button>
+    </div>
+
+    <script>
+        // Create color icon
+        const colorCanvas = document.getElementById('colorCanvas');
+        const colorCtx = colorCanvas.getContext('2d');
+        
+        // Background
+        colorCtx.fillStyle = '#0078d4';
+        colorCtx.fillRect(0, 0, 192, 192);
+        
+        // Kanban columns
+        colorCtx.fillStyle = 'white';
+        colorCtx.fillRect(20, 40, 45, 120);
+        colorCtx.fillRect(75, 40, 45, 120);
+        colorCtx.fillRect(130, 40, 45, 120);
+        
+        // Cards
+        colorCtx.fillStyle = '#f0f0f0';
+        colorCtx.fillRect(25, 50, 35, 15);
+        colorCtx.fillRect(25, 70, 35, 15);
+        colorCtx.fillRect(80, 50, 35, 15);
+        colorCtx.fillRect(135, 50, 35, 15);
+        
+        // Create outline icon
+        const outlineCanvas = document.getElementById('outlineCanvas');
+        const outlineCtx = outlineCanvas.getContext('2d');
+        
+        // Background
+        outlineCtx.fillStyle = 'white';
+        outlineCtx.fillRect(0, 0, 32, 32);
+        
+        // Kanban columns outline
+        outlineCtx.strokeStyle = 'black';
+        outlineCtx.lineWidth = 1;
+        outlineCtx.strokeRect(3, 6, 8, 20);
+        outlineCtx.strokeRect(12, 6, 8, 20);
+        outlineCtx.strokeRect(21, 6, 8, 20);
+        
+        // Cards
+        outlineCtx.fillStyle = 'black';
+        outlineCtx.fillRect(4, 8, 6, 2);
+        outlineCtx.fillRect(4, 11, 6, 2);
+        outlineCtx.fillRect(13, 8, 6, 2);
+        outlineCtx.fillRect(22, 8, 6, 2);
+        
+        function downloadIcon(type) {
+            const canvas = type === 'color' ? colorCanvas : outlineCanvas;
+            const link = document.createElement('a');
+            link.download = `${type}.png`;
+            link.href = canvas.toDataURL();
+            link.click();
+        }
+    </script>
+</body>
+</html>

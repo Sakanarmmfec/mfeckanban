@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trello-style Kanban Board</title>
+    <script src="https://res.cdn.office.net/teams-js/2.0.0/js/MicrosoftTeams.min.js"></script>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 0; background: linear-gradient(135deg, #0079bf, #026aa7); min-height: 100vh; }
+        .header { background: rgba(0,0,0,0.15); padding: 12px 20px; color: white; display: flex; align-items: center; gap: 15px; }
+        .header h1 { margin: 0; font-size: 18px; font-weight: 700; }
+        .header button { background: rgba(255,255,255,0.24); color: white; border: none; padding: 8px 12px; border-radius: 3px; cursor: pointer; font-size: 14px; }
+        .header button:hover { background: rgba(255,255,255,0.3); }
+        .board-container { padding: 20px; overflow-x: auto; height: calc(100vh - 60px); }
+        .board { display: flex; gap: 12px; min-height: 100%; }
+        .list { background: #ebecf0; border-radius: 3px; padding: 8px; min-width: 272px; max-width: 272px; height: fit-content; }
+        .list-header { padding: 8px 12px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+        .list-title { font-size: 14px; font-weight: 600; color: #172b4d; margin: 0; }
+        .list-menu { background: none; border: none; color: #6b778c; cursor: pointer; padding: 4px; border-radius: 3px; }
+        .list-menu:hover { background: #ddd; }
+        .cards { min-height: 20px; }
+        .card { background: white; border-radius: 3px; padding: 8px 12px; margin-bottom: 8px; cursor: pointer; box-shadow: 0 1px 0 rgba(9,30,66,0.25); position: relative; }
+        .card:hover { box-shadow: 0 2px 4px rgba(9,30,66,0.25); }
+        .card-title { font-size: 14px; color: #172b4d; margin-bottom: 4px; line-height: 1.3; }
+        .card-labels { display: flex; gap: 4px; margin-bottom: 6px; flex-wrap: wrap; }
+        .label { height: 8px; border-radius: 4px; min-width: 40px; }
+        .label.green { background: #61bd4f; }
+        .label.yellow { background: #f2d600; }
+        .label.orange { background: #ff9f1a; }
+        .label.red { background: #eb5a46; }
+        .label.purple { background: #c377e0; }
+        .label.blue { background: #0079bf; }
+        .card-meta { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #6b778c; }
+        .card-date { display: flex; align-items: center; gap: 4px; }
+        .card-members { display: flex; gap: 2px; }
+        .member-avatar { width: 24px; height: 24px; border-radius: 50%; background: #ddd; display: flex; align-items: center; justify-content: center; font-size: 10px; color: white; font-weight: bold; }
+        .add-card { background: none; border: none; color: #6b778c; padding: 8px 12px; width: 100%; text-align: left; border-radius: 3px; cursor: pointer; font-size: 14px; }
+        .add-card:hover { background: #ddd; color: #172b4d; }
+        .add-list { background: rgba(255,255,255,0.24); border-radius: 3px; padding: 12px; min-width: 272px; color: white; cursor: pointer; }
+        .add-list:hover { background: rgba(255,255,255,0.32); }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; }
+        .modal-content { background: white; margin: 50px auto; padding: 0; width: 500px; border-radius: 3px; }
+        .modal-header { padding: 20px 20px 0; border-bottom: 1px solid #ddd; }
+        .modal-body { padding: 20px; }
+        .form-group { margin-bottom: 16px; }
+        .form-group label { display: block; margin-bottom: 6px; font-weight: 600; color: #172b4d; font-size: 12px; text-transform: uppercase; }
+        .form-group input, .form-group textarea, .form-group select { width: 100%; padding: 8px 12px; border: 2px solid #ddd; border-radius: 3px; font-size: 14px; }
+        .form-group input:focus, .form-group textarea:focus { border-color: #0079bf; outline: none; }
+        .form-group textarea { height: 80px; resize: vertical; font-family: inherit; }
+        .form-buttons { display: flex; gap: 8px; }
+        .btn { padding: 8px 16px; border: none; border-radius: 3px; cursor: pointer; font-size: 14px; font-weight: 600; }
+        .btn-primary { background: #0079bf; color: white; }
+        .btn-primary:hover { background: #026aa7; }
+        .btn-secondary { background: #f4f5f7; color: #172b4d; }
+        .btn-secondary:hover { background: #e4e6ea; }
+        .close-modal { position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 20px; cursor: pointer; color: #6b778c; }
+        .card { position: relative; }
+        .card-actions { position: absolute; top: 6px; right: 6px; opacity: 0; transition: opacity 0.2s; z-index: 10; }
+        .card:hover .card-actions { opacity: 1; }
+        .delete-card { background: rgba(235, 90, 70, 0.9); color: white; border: none; width: 20px; height: 20px; border-radius: 50%; cursor: pointer; font-size: 12px; line-height: 1; display: flex; align-items: center; justify-content: center; }
+        .delete-card:hover { background: #eb5a46; }
+        .dragging { opacity: 0.5; transform: rotate(5deg); }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📋 Product Roadmap</h1>
+        <button onclick="addList()">+ Add List</button>
+    </div>
+    <div class="board-container">
+        <div class="board" id="board"></div>
+    </div>
+    
+    <div id="cardModal" class="modal">
+        <div class="modal-content">
+            <button class="close-modal" onclick="closeModal()">&times;</button>
+            <div class="modal-header">
+                <h3 id="modalTitle">Add Card</h3>
+            </div>
+            <div class="modal-body">
+                <form id="cardForm">
+                    <div class="form-group">
+                        <label>Card Title</label>
+                        <input type="text" id="cardTitle" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Description</label>
+                        <textarea id="description" placeholder="Add a more detailed description..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Assigned To</label>
+                        <input type="text" id="assignedTo" placeholder="Enter name or email">
+                    </div>
+                    <div class="form-group">
+                        <label>Due Date</label>
+                        <input type="date" id="dueDate">
+                    </div>
+                    <div class="form-group">
+                        <label>Priority</label>
+                        <select id="priority">
+                            <option value="">No Priority</option>
+                            <option value="low">Low</option>
+                            <option value="medium">Medium</option>
+                            <option value="high">High</option>
+                            <option value="urgent">Urgent</option>
+                        </select>
+                    </div>
+                    <div class="form-buttons">
+                        <button type="submit" class="btn btn-primary">Save Card</button>
+                        <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        microsoftTeams.app.initialize();
+        
+        let lists = ['📋 Backlog', '🔄 In Progress', '👀 Review', '✅ Done'];
+        let currentList = '';
+        let editingCard = null;
+        let allCards = [];
+        let teamsContext = null;
+        let accessToken = null;
+        
+        // Initialize Teams context
+        async function initTeams() {
+            try {
+                await microsoftTeams.app.initialize();
+                teamsContext = await microsoftTeams.app.getContext();
+                accessToken = await microsoftTeams.authentication.getAuthToken();
+                console.log('Teams initialized:', teamsContext.team?.displayName);
+            } catch (error) {
+                console.log('Not in Teams, using localStorage');
+            }
+        }
+        
+        // SharePoint API calls
+        async function callSharePointAPI(endpoint, method = 'GET', data = null) {
+            if (!accessToken || !teamsContext?.sharePointSite?.webUrl) {
+                throw new Error('SharePoint not available');
+            }
+            
+            const url = `${teamsContext.sharePointSite.webUrl}/_api/web/lists/getbytitle('KanbanCards')/items${endpoint}`;
+            
+            const options = {
+                method,
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Accept': 'application/json;odata=verbose',
+                    'Content-Type': 'application/json;odata=verbose'
+                }
+            };
+            
+            if (data) {
+                options.body = JSON.stringify(data);
+            }
+            
+            const response = await fetch(url, options);
+            return response.json();
+        }
+        
+        // Create SharePoint list if not exists
+        async function createSharePointList() {
+            try {
+                const listData = {
+                    '__metadata': { 'type': 'SP.List' },
+                    'Title': 'KanbanCards',
+                    'Description': 'Kanban board cards storage',
+                    'BaseTemplate': 100
+                };
+                
+                const url = `${teamsContext.sharePointSite.webUrl}/_api/web/lists`;
+                await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`,
+                        'Accept': 'application/json;odata=verbose',
+                        'Content-Type': 'application/json;odata=verbose'
+                    },
+                    body: JSON.stringify(listData)
+                });
+            } catch (error) {
+                console.log('List might already exist');
+            }
+        }
+        
+        // Load data from SharePoint or localStorage
+        async function loadData() {
+            try {
+                if (accessToken && teamsContext?.sharePointSite) {
+                    await createSharePointList();
+                    const result = await callSharePointAPI('');
+                    
+                    if (result.d?.results) {
+                        allCards = result.d.results.map(item => ({
+                            id: item.Id,
+                            title: item.Title,
+                            description: item.Description || '',
+                            assignedTo: item.AssignedTo || '',
+                            dueDate: item.DueDate || '',
+                            priority: item.Priority || '',
+                            status: item.Status || lists[0]
+                        }));
+                    }
+                } else {
+                    // Fallback to localStorage
+                    const savedCards = localStorage.getItem('kanban-cards');
+                    if (savedCards) allCards = JSON.parse(savedCards);
+                }
+            } catch (error) {
+                console.log('Loading from localStorage:', error);
+                const savedCards = localStorage.getItem('kanban-cards');
+                if (savedCards) allCards = JSON.parse(savedCards);
+            }
+        }
+        
+        // Save data to SharePoint or localStorage
+        async function saveCard(card, isUpdate = false) {
+            try {
+                if (accessToken && teamsContext?.sharePointSite) {
+                    const cardData = {
+                        '__metadata': { 'type': 'SP.Data.KanbanCardsListItem' },
+                        'Title': card.title,
+                        'Description': card.description,
+                        'AssignedTo': card.assignedTo,
+                        'DueDate': card.dueDate,
+                        'Priority': card.priority,
+                        'Status': card.status
+                    };
+                    
+                    if (isUpdate) {
+                        await callSharePointAPI(`(${card.id})`, 'PATCH', cardData);
+                    } else {
+                        const result = await callSharePointAPI('', 'POST', cardData);
+                        card.id = result.d.Id;
+                    }
+                } else {
+                    // Fallback to localStorage
+                    localStorage.setItem('kanban-cards', JSON.stringify(allCards));
+                }
+            } catch (error) {
+                console.log('Saving to localStorage:', error);
+                localStorage.setItem('kanban-cards', JSON.stringify(allCards));
+            }
+        }
+        
+        // Delete card from SharePoint
+        async function deleteCardFromStorage(cardId) {
+            try {
+                if (accessToken && teamsContext?.sharePointSite) {
+                    await callSharePointAPI(`(${cardId})`, 'DELETE');
+                } else {
+                    localStorage.setItem('kanban-cards', JSON.stringify(allCards));
+                }
+            } catch (error) {
+                console.log('Deleting from localStorage:', error);
+                localStorage.setItem('kanban-cards', JSON.stringify(allCards));
+            }
+        }
+        
+        function initBoard() {
+            const board = document.getElementById('board');
+            board.innerHTML = '';
+            lists.forEach(list => createList(list));
+            createAddListButton();
+        }
+        
+        function createList(name) {
+            const board = document.getElementById('board');
+            const list = document.createElement('div');
+            list.className = 'list';
+            list.innerHTML = `
+                <div class="list-header">
+                    <h3 class="list-title">${name}</h3>
+                    <button class="list-menu" onclick="deleteList('${name}')">⋯</button>
+                </div>
+                <div id="${name.replace(/[^a-zA-Z0-9]/g, '')}" class="cards"></div>
+                <button class="add-card" onclick="openCardModal('${name}')">+ Add a card</button>
+            `;
+            board.appendChild(list);
+            setupDropZone(name.replace(/[^a-zA-Z0-9]/g, ''));
+        }
+        
+        function createAddListButton() {
+            const board = document.getElementById('board');
+            const addList = document.createElement('div');
+            addList.className = 'add-list';
+            addList.innerHTML = '+ Add another list';
+            addList.onclick = addList;
+            board.appendChild(addList);
+        }
+        
+        function addList() {
+            const name = prompt('Enter list name:');
+            if (name && !lists.includes(name)) {
+                lists.push(name);
+                localStorage.setItem('kanban-lists', JSON.stringify(lists));
+                initBoard();
+            }
+        }
+        
+        async function deleteList(name) {
+            if (confirm(`Delete "${name}" list?`)) {
+                lists = lists.filter(l => l !== name);
+                
+                // Delete cards in this list
+                const cardsToDelete = allCards.filter(c => c.status === name);
+                for (const card of cardsToDelete) {
+                    await deleteCardFromStorage(card.id);
+                }
+                
+                allCards = allCards.filter(c => c.status !== name);
+                localStorage.setItem('kanban-lists', JSON.stringify(lists));
+                initBoard();
+            }
+        }
+        
+        function openCardModal(list) {
+            currentList = list;
+            editingCard = null;
+            document.getElementById('modalTitle').textContent = 'Add Card';
+            document.getElementById('cardForm').reset();
+            document.getElementById('cardModal').style.display = 'block';
+        }
+        
+        function closeModal() {
+            document.getElementById('cardModal').style.display = 'none';
+        }
+        
+        function getPriorityLabel(priority) {
+            const labels = {
+                'low': 'green',
+                'medium': 'yellow', 
+                'high': 'orange',
+                'urgent': 'red'
+            };
+            return labels[priority] || '';
+        }
+        
+        function getInitials(name) {
+            return name ? name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : '';
+        }
+        
+        function createCardElement(card) {
+            const cardEl = document.createElement('div');
+            cardEl.className = 'card';
+            cardEl.draggable = true;
+            cardEl.dataset.cardId = card.id || Date.now();
+            
+            const labels = card.priority ? `<div class="card-labels"><div class="label ${getPriorityLabel(card.priority)}"></div></div>` : '';
+            const member = card.assignedTo ? `<div class="member-avatar">${getInitials(card.assignedTo)}</div>` : '';
+            const date = card.dueDate ? `<div class="card-date">📅 ${new Date(card.dueDate).toLocaleDateString()}</div>` : '';
+            
+            cardEl.innerHTML = `
+                <div class="card-actions">
+                    <button class="delete-card" onclick="deleteCard(event); return false;">&times;</button>
+                </div>
+                ${labels}
+                <div class="card-title">${card.title}</div>
+                <div class="card-meta">
+                    ${date}
+                    <div class="card-members">${member}</div>
+                </div>
+            `;
+            
+            cardEl.onclick = (e) => {
+                if (!e.target.classList.contains('delete-card')) {
+                    editCard(card, cardEl);
+                }
+            };
+            cardEl.ondragstart = (e) => {
+                e.dataTransfer.setData('application/json', JSON.stringify(card));
+                e.dataTransfer.setData('text/plain', cardEl.id || Math.random().toString());
+                cardEl.classList.add('dragging');
+            };
+            cardEl.ondragend = (e) => {
+                cardEl.classList.remove('dragging');
+            };
+            return cardEl;
+        }
+        
+        function editCard(card, element) {
+            editingCard = { card, element };
+            document.getElementById('modalTitle').textContent = 'Edit Card';
+            document.getElementById('cardTitle').value = card.title;
+            document.getElementById('description').value = card.description;
+            document.getElementById('assignedTo').value = card.assignedTo;
+            document.getElementById('dueDate').value = card.dueDate;
+            document.getElementById('priority').value = card.priority;
+            document.getElementById('cardModal').style.display = 'block';
+        }
+        
+        function setupDropZone(listId) {
+            const list = document.getElementById(listId);
+            list.ondragover = (e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                list.style.background = '#ddd';
+            };
+            list.ondragleave = (e) => {
+                list.style.background = '';
+            };
+            list.ondrop = (e) => {
+                e.preventDefault();
+                list.style.background = '';
+                
+                const cardData = JSON.parse(e.dataTransfer.getData('application/json'));
+                const newStatus = lists.find(l => l.replace(/[^a-zA-Z0-9]/g, '') === listId);
+                cardData.status = newStatus;
+                
+                // Update card status in data
+                const draggedCard = document.querySelector('.dragging');
+                if (draggedCard) {
+                    const cardId = draggedCard.dataset.cardId;
+                    const cardIndex = allCards.findIndex(c => c.id == cardId);
+                    if (cardIndex !== -1) {
+                        allCards[cardIndex].status = newStatus;
+                        await saveCard(allCards[cardIndex], true);
+                    }
+                    draggedCard.remove();
+                }
+                
+                // Add to new list
+                list.appendChild(createCardElement(cardData));
+            };
+        }
+        
+        async function deleteCard(event) {
+            event.preventDefault();
+            event.stopPropagation();
+            if (confirm('ลบการ์ดนี้หรือไม่?')) {
+                const card = event.target.closest('.card');
+                if (card) {
+                    const cardId = card.dataset.cardId;
+                    await deleteCardFromStorage(cardId);
+                    allCards = allCards.filter(c => c.id != cardId);
+                    card.remove();
+                }
+            }
+        }
+        
+        document.getElementById('cardForm').onsubmit = (e) => {
+            e.preventDefault();
+            const card = {
+                id: editingCard ? editingCard.card.id : Date.now(),
+                title: document.getElementById('cardTitle').value,
+                description: document.getElementById('description').value,
+                assignedTo: document.getElementById('assignedTo').value,
+                dueDate: document.getElementById('dueDate').value,
+                priority: document.getElementById('priority').value,
+                status: currentList
+            };
+            
+            if (editingCard) {
+                const cardIndex = allCards.findIndex(c => c.id === editingCard.card.id);
+                if (cardIndex !== -1) {
+                    allCards[cardIndex] = card;
+                    await saveCard(card, true);
+                }
+                editingCard.element.replaceWith(createCardElement(card));
+            } else {
+                allCards.push(card);
+                await saveCard(card, false);
+                const listEl = document.getElementById(currentList.replace(/[^a-zA-Z0-9]/g, ''));
+                listEl.appendChild(createCardElement(card));
+            }
+            
+            closeModal();
+        };
+        
+        // Load cards from saved data
+        function loadCards() {
+            allCards.forEach(card => {
+                const listEl = document.getElementById(card.status.replace(/[^a-zA-Z0-9]/g, ''));
+                if (listEl) listEl.appendChild(createCardElement(card));
+            });
+        }
+        
+        // Add sample cards only if no data exists
+        function addSampleCards() {
+            if (allCards.length === 0) {
+                const sampleCards = [
+                    { id: 1, title: 'User Authentication System', assignedTo: 'John Doe', priority: 'high', dueDate: '2024-02-15', status: '📋 Backlog' },
+                    { id: 2, title: 'Dashboard UI Design', assignedTo: 'Jane Smith', priority: 'medium', dueDate: '2024-02-20', status: '🔄 In Progress' },
+                    { id: 3, title: 'API Integration', assignedTo: 'Mike Johnson', priority: 'urgent', dueDate: '2024-02-10', status: '👀 Review' },
+                    { id: 4, title: 'Database Migration', assignedTo: 'Sarah Wilson', priority: 'low', dueDate: '2024-01-30', status: '✅ Done' }
+                ];
+                
+                allCards = sampleCards;
+                saveData();
+            }
+            loadCards();
+        }
+        
+        // Prevent modal from closing when clicking inside
+        document.querySelector('.modal-content').onclick = (e) => e.stopPropagation();
+        document.getElementById('cardModal').onclick = closeModal;
+        
+        // Initialize app
+        async function initApp() {
+            await initTeams();
+            await loadData();
+            initBoard();
+            addSampleCards();
+        }
+        
+        initApp();
+    </script>
+</body>
+</html>
