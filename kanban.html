@@ -42,11 +42,14 @@
         .add-card:hover { background: #ddd; color: #172b4d; }
         .add-list { background: rgba(255,255,255,0.24); border-radius: 3px; padding: 12px; min-width: 272px; color: white; cursor: pointer; }
         .add-list:hover { background: rgba(255,255,255,0.32); }
-        .card-actions { position: absolute; top: 6px; right: 6px; opacity: 0; transition: opacity 0.2s; z-index: 10; }
+        .card-actions { position: absolute; top: 4px; right: 4px; opacity: 0; transition: opacity 0.2s; z-index: 100; }
         .card:hover .card-actions { opacity: 1; }
-        .delete-card { background: #eb5a46; color: white; border: none; width: 22px; height: 22px; border-radius: 50%; cursor: pointer; font-size: 14px; line-height: 1; display: flex; align-items: center; justify-content: center; font-weight: bold; }
+        .delete-card { background: #eb5a46; color: white; border: none; width: 24px; height: 24px; border-radius: 50%; cursor: pointer; font-size: 16px; line-height: 1; display: flex; align-items: center; justify-content: center; font-weight: bold; }
         .delete-card:hover { background: #c53030; transform: scale(1.1); }
         .delete-card:active { transform: scale(0.95); }
+        .card.selected { border: 2px solid #0078d4; background: #f0f8ff; }
+        .delete-selected { position: fixed; bottom: 20px; right: 20px; background: #eb5a46; color: white; padding: 12px 20px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; z-index: 1000; display: none; }
+        .delete-selected:hover { background: #c53030; }
         .dragging { opacity: 0.5; transform: rotate(5deg); }
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; }
         .modal-content { background: white; margin: 50px auto; padding: 0; width: 500px; border-radius: 3px; }
@@ -307,10 +310,31 @@
                 deleteCard(e, card.id, card.title);
             });
             
+            // Card click handlers
+            let clickTimeout;
             cardEl.onclick = (e) => {
-                if (!e.target.classList.contains('delete-card')) {
-                    editCard(card, cardEl);
+                if (e.target.classList.contains('delete-card')) {
+                    return; // Let delete button handle this
                 }
+                
+                // Single click - select/deselect card
+                clearTimeout(clickTimeout);
+                clickTimeout = setTimeout(() => {
+                    if (e.ctrlKey || e.metaKey) {
+                        // Ctrl+click to select/deselect
+                        cardEl.classList.toggle('selected');
+                        updateDeleteButton();
+                    } else {
+                        // Regular click - edit card
+                        editCard(card, cardEl);
+                    }
+                }, 200);
+            };
+            
+            // Double click - edit card
+            cardEl.ondblclick = (e) => {
+                clearTimeout(clickTimeout);
+                editCard(card, cardEl);
             };
             
             cardEl.ondragstart = (e) => {
@@ -837,6 +861,63 @@
         });
         document.getElementById('cardModal').onclick = closeModal;
         document.getElementById('configModal').onclick = closeConfigModal;
+        
+        // Add delete selected button
+        function updateDeleteButton() {
+            const selectedCards = document.querySelectorAll('.card.selected');
+            const deleteBtn = document.getElementById('deleteSelectedBtn');
+            
+            if (selectedCards.length > 0) {
+                if (!deleteBtn) {
+                    const btn = document.createElement('button');
+                    btn.id = 'deleteSelectedBtn';
+                    btn.className = 'delete-selected';
+                    btn.innerHTML = `🗑️ Delete Selected (${selectedCards.length})`;
+                    btn.onclick = deleteSelectedCards;
+                    document.body.appendChild(btn);
+                }
+                deleteBtn.style.display = 'block';
+                deleteBtn.innerHTML = `🗑️ Delete Selected (${selectedCards.length})`;
+            } else if (deleteBtn) {
+                deleteBtn.style.display = 'none';
+            }
+        }
+        
+        function deleteSelectedCards() {
+            const selectedCards = document.querySelectorAll('.card.selected');
+            if (selectedCards.length === 0) return;
+            
+            if (confirm(`Delete ${selectedCards.length} selected cards?`)) {
+                selectedCards.forEach(cardEl => {
+                    const cardId = cardEl.dataset.cardId;
+                    allCards = allCards.filter(c => c.id != cardId);
+                    cardEl.remove();
+                });
+                
+                saveData();
+                updateDeleteButton();
+                console.log(`Deleted ${selectedCards.length} cards`);
+            }
+        }
+        
+        // Add keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Delete' || e.key === 'Backspace') {
+                const selectedCards = document.querySelectorAll('.card.selected');
+                if (selectedCards.length > 0) {
+                    e.preventDefault();
+                    deleteSelectedCards();
+                }
+            }
+            
+            if (e.key === 'Escape') {
+                // Deselect all cards
+                document.querySelectorAll('.card.selected').forEach(card => {
+                    card.classList.remove('selected');
+                });
+                updateDeleteButton();
+            }
+        });
         
         // Start the app
         init();
