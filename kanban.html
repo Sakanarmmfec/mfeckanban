@@ -84,7 +84,7 @@
 <body>
     <div class="header">
         <h1>📋 DIS Kanban Board</h1>
-        <div style="font-size: 12px; color: rgba(255,255,255,0.8);">💡 DELETE: X button OR Triple-click OR Hold 2sec OR Right-click | EDIT: Click</div>
+        <div style="font-size: 12px; color: rgba(255,255,255,0.8);">💡 DELETE: X button OR Triple-click OR Hold 2sec OR Right-click | EDIT: Single-click</div>
         <button onclick="addNewList()">+ Add List</button>
         <button onclick="openConfigModal()">⚙️ Configuration</button>
         <button onclick="showDebugInfo()" style="font-size: 11px;">🔍 Debug</button>
@@ -362,29 +362,21 @@
                 hideContextMenu();
                 clickCount++;
                 
-                if (clickTimer) {
-                    clearTimeout(clickTimer);
+                if (clickCount === 1) {
+                    // Single click - edit immediately
+                    editCard(card, cardEl);
+                } else if (clickCount >= 3) {
+                    // Triple click - delete
+                    console.log('Triple click detected - deleting card');
+                    if (confirm(`DELETE CARD: "${card.title}"?\n\nTriple-click detected!`)) {
+                        performCardDelete(card.id, card.title, 'triple-click');
+                    }
                 }
                 
-                clickTimer = setTimeout(() => {
-                    if (clickCount === 1) {
-                        // Single click - edit
-                        editCard(card, cardEl);
-                    } else if (clickCount === 2) {
-                        // Double click - select
-                        if (e.ctrlKey || e.metaKey) {
-                            cardEl.classList.toggle('selected');
-                            updateDeleteButton();
-                        }
-                    } else if (clickCount >= 3) {
-                        // Triple click - delete
-                        console.log('Triple click detected - deleting card');
-                        if (confirm(`DELETE CARD: "${card.title}"?\n\nTriple-click detected!`)) {
-                            performCardDelete(card.id, card.title, 'triple-click');
-                        }
-                    }
+                // Reset click count after delay
+                setTimeout(() => {
                     clickCount = 0;
-                }, 400);
+                }, 500);
                 
                 return false;
             });
