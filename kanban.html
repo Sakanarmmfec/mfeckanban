@@ -21,7 +21,8 @@
         .list-menu:hover { background: #ddd; }
         .list-title { cursor: pointer; }
         .list-title:hover { background: rgba(255,255,255,0.5); padding: 2px 4px; border-radius: 3px; }
-        .cards { min-height: 20px; }
+        .cards { min-height: 50px; padding: 4px; }
+        .cards.drag-over { background: rgba(0, 121, 191, 0.1); border: 2px dashed #0079bf; border-radius: 3px; }
         .card { background: white; border-radius: 3px; padding: 8px 12px; margin-bottom: 8px; cursor: pointer; box-shadow: 0 1px 0 rgba(9,30,66,0.25); position: relative; }
         .card:hover { box-shadow: 0 2px 4px rgba(9,30,66,0.25); }
         .card-title { font-size: 14px; color: #172b4d; margin-bottom: 4px; line-height: 1.3; }
@@ -263,11 +264,29 @@
             
             cardEl.ondragstart = (e) => {
                 e.dataTransfer.setData('application/json', JSON.stringify(card));
+                e.dataTransfer.effectAllowed = 'move';
                 cardEl.classList.add('dragging');
+                
+                // Add visual feedback to all drop zones
+                setTimeout(() => {
+                    document.querySelectorAll('.cards').forEach(zone => {
+                        if (!zone.contains(cardEl)) {
+                            zone.style.minHeight = '60px';
+                            zone.style.border = '2px dashed #ccc';
+                        }
+                    });
+                }, 0);
             };
             
             cardEl.ondragend = (e) => {
                 cardEl.classList.remove('dragging');
+                
+                // Remove visual feedback from all drop zones
+                document.querySelectorAll('.cards').forEach(zone => {
+                    zone.classList.remove('drag-over');
+                    zone.style.minHeight = '';
+                    zone.style.border = '';
+                });
             };
             
             return cardEl;
@@ -305,19 +324,28 @@
             list.ondragover = (e) => {
                 e.preventDefault();
                 e.dataTransfer.dropEffect = 'move';
-                list.style.background = '#ddd';
+                list.classList.add('drag-over');
             };
             
             list.ondragleave = (e) => {
-                list.style.background = '';
+                // Only remove highlight if leaving the drop zone completely
+                if (!list.contains(e.relatedTarget)) {
+                    list.classList.remove('drag-over');
+                }
             };
             
             list.ondrop = (e) => {
                 e.preventDefault();
-                list.style.background = '';
+                list.classList.remove('drag-over');
                 
                 const cardData = JSON.parse(e.dataTransfer.getData('application/json'));
                 const newStatus = lists.find(l => l.replace(/[^a-zA-Z0-9]/g, '') === listId);
+                
+                // Don't do anything if dropping in the same list
+                if (cardData.status === newStatus) {
+                    return;
+                }
+                
                 cardData.status = newStatus;
                 
                 // Remove original card
