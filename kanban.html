@@ -19,6 +19,8 @@
         .list-title { font-size: 14px; font-weight: 600; color: #172b4d; margin: 0; }
         .list-menu { background: none; border: none; color: #6b778c; cursor: pointer; padding: 4px; border-radius: 3px; }
         .list-menu:hover { background: #ddd; }
+        .list-title { cursor: pointer; }
+        .list-title:hover { background: rgba(255,255,255,0.5); padding: 2px 4px; border-radius: 3px; }
         .cards { min-height: 20px; }
         .card { background: white; border-radius: 3px; padding: 8px 12px; margin-bottom: 8px; cursor: pointer; box-shadow: 0 1px 0 rgba(9,30,66,0.25); position: relative; }
         .card:hover { box-shadow: 0 2px 4px rgba(9,30,66,0.25); }
@@ -150,7 +152,7 @@
             list.className = 'list';
             list.innerHTML = `
                 <div class="list-header">
-                    <h3 class="list-title">${name}</h3>
+                    <h3 class="list-title" onclick="editListName('${name}')">${name}</h3>
                     <button class="list-menu" onclick="deleteList('${name}')">⋯</button>
                 </div>
                 <div id="${name.replace(/[^a-zA-Z0-9]/g, '')}" class="cards"></div>
@@ -165,6 +167,30 @@
             if (name && name.trim() && !lists.includes(name)) {
                 lists.push(name);
                 localStorage.setItem('kanban-lists', JSON.stringify(lists));
+                initBoard();
+                loadCards();
+            }
+        }
+        
+        function editListName(oldName) {
+            const newName = prompt('Enter new list name:', oldName);
+            if (newName && newName.trim() && newName !== oldName && !lists.includes(newName)) {
+                // Update lists array
+                const index = lists.indexOf(oldName);
+                if (index !== -1) {
+                    lists[index] = newName;
+                }
+                
+                // Update cards status
+                allCards.forEach(card => {
+                    if (card.status === oldName) {
+                        card.status = newName;
+                    }
+                });
+                
+                // Save and refresh
+                localStorage.setItem('kanban-lists', JSON.stringify(lists));
+                localStorage.setItem('kanban-cards', JSON.stringify(allCards));
                 initBoard();
                 loadCards();
             }
