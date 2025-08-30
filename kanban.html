@@ -127,18 +127,13 @@
             </div>
             <div class="modal-body">
                 <div class="form-group">
-                    <label>OneDrive Folder Path</label>
-                    <input type="text" id="folderPath" placeholder="/Apps/KanbanBoard" value="/Apps/KanbanBoard">
-                    <small style="color: #666; font-size: 11px;">Folder path in your OneDrive (e.g., /Apps/KanbanBoard)</small>
+                    <label>OneDrive Share Link</label>
+                    <input type="text" id="shareLink" placeholder="https://1drv.ms/f/c/...">
+                    <small style="color: #666; font-size: 11px;">OneDrive folder share link (e.g., https://1drv.ms/f/c/...)</small>
                 </div>
                 <div class="form-group">
                     <label>Excel File Name</label>
                     <input type="text" id="excelFileName" placeholder="KanbanData.xlsx" value="KanbanData.xlsx">
-                </div>
-                <div class="form-group">
-                    <label>OneDrive Account</label>
-                    <input type="email" id="userEmail" placeholder="your.email@company.com">
-                    <small style="color: #666; font-size: 11px;">Your Microsoft 365 email address</small>
                 </div>
                 <div class="form-group">
                     <label>Current Status</label>
@@ -440,7 +435,7 @@
             localStorage.setItem('kanban-lists', JSON.stringify(lists));
             
             // Try to save to OneDrive if configured
-            if (oneDriveConfig.userEmail && oneDriveConfig.fileName) {
+            if (oneDriveConfig.shareLink && oneDriveConfig.fileName) {
                 await saveToOneDrive();
             }
             
@@ -451,13 +446,14 @@
         async function saveToOneDrive() {
             try {
                 // This would integrate with Microsoft Graph API
-                console.log('Saving to OneDrive:', `${oneDriveConfig.folderPath}/${oneDriveConfig.fileName}`);
+                console.log('Saving to OneDrive folder:', oneDriveConfig.folderId);
                 
                 // For demo purposes, just log the data that would be saved
                 const oneDriveData = {
                     timestamp: new Date().toISOString(),
-                    account: oneDriveConfig.userEmail,
-                    path: `${oneDriveConfig.folderPath}/${oneDriveConfig.fileName}`,
+                    shareLink: oneDriveConfig.shareLink,
+                    folderId: oneDriveConfig.folderId,
+                    fileName: oneDriveConfig.fileName,
                     lists: lists,
                     cards: allCards
                 };
@@ -471,12 +467,13 @@
         
         async function loadFromOneDrive() {
             try {
-                if (!oneDriveConfig.userEmail || !oneDriveConfig.fileName) {
+                if (!oneDriveConfig.shareLink || !oneDriveConfig.fileName) {
                     return false;
                 }
                 
                 // This would integrate with Microsoft Graph API
-                console.log('Loading from OneDrive:', `${oneDriveConfig.folderPath}/${oneDriveConfig.fileName}`);
+                console.log('Loading from OneDrive folder:', oneDriveConfig.folderId);
+                console.log('File:', oneDriveConfig.fileName);
                 
                 // For demo purposes, return false to use localStorage
                 return false;
@@ -497,9 +494,9 @@
         
         // Configuration variables
         let oneDriveConfig = {
-            folderPath: '/Apps/KanbanBoard',
+            shareLink: '',
             fileName: 'KanbanData.xlsx',
-            userEmail: '',
+            folderId: null,
             accessToken: null
         };
         
@@ -516,25 +513,44 @@
             const saved = localStorage.getItem('onedrive-config');
             if (saved) {
                 oneDriveConfig = { ...oneDriveConfig, ...JSON.parse(saved) };
-                document.getElementById('folderPath').value = oneDriveConfig.folderPath || '/Apps/KanbanBoard';
+                document.getElementById('shareLink').value = oneDriveConfig.shareLink || '';
                 document.getElementById('excelFileName').value = oneDriveConfig.fileName || 'KanbanData.xlsx';
-                document.getElementById('userEmail').value = oneDriveConfig.userEmail || '';
                 updateConfigStatus();
             }
         }
         
         function saveOneDriveConfig() {
-            oneDriveConfig.folderPath = document.getElementById('folderPath').value;
+            oneDriveConfig.shareLink = document.getElementById('shareLink').value;
             oneDriveConfig.fileName = document.getElementById('excelFileName').value;
-            oneDriveConfig.userEmail = document.getElementById('userEmail').value;
+            
+            // Extract folder ID from share link
+            if (oneDriveConfig.shareLink) {
+                oneDriveConfig.folderId = extractFolderIdFromLink(oneDriveConfig.shareLink);
+            }
+            
             localStorage.setItem('onedrive-config', JSON.stringify(oneDriveConfig));
             updateConfigStatus();
         }
         
+        function extractFolderIdFromLink(shareLink) {
+            try {
+                // Extract folder ID from OneDrive share link
+                // Format: https://1drv.ms/f/c/{folderId}/...
+                const match = shareLink.match(/\/f\/c\/([a-f0-9]+)\//i);
+                return match ? match[1] : null;
+            } catch (e) {
+                console.error('Error extracting folder ID:', e);
+                return null;
+            }
+        }
+        
         function updateConfigStatus() {
             const status = document.getElementById('configStatus');
-            if (oneDriveConfig.userEmail && oneDriveConfig.fileName) {
-                status.innerHTML = `✅ Configured: ${oneDriveConfig.userEmail}/${oneDriveConfig.folderPath}/${oneDriveConfig.fileName}`;
+            if (oneDriveConfig.shareLink && oneDriveConfig.fileName) {
+                const shortLink = oneDriveConfig.shareLink.length > 50 ? 
+                    oneDriveConfig.shareLink.substring(0, 50) + '...' : 
+                    oneDriveConfig.shareLink;
+                status.innerHTML = `✅ Configured: ${shortLink}/${oneDriveConfig.fileName}`;
                 status.style.background = '#d4edda';
             } else {
                 status.innerHTML = '❌ Not configured';
@@ -545,21 +561,23 @@
         async function createExcelFile() {
             saveOneDriveConfig();
             
-            if (!oneDriveConfig.userEmail || !oneDriveConfig.fileName) {
-                alert('Please enter your email and file name');
+            if (!oneDriveConfig.shareLink || !oneDriveConfig.fileName) {
+                alert('Please enter OneDrive share link and file name');
                 return;
             }
             
             try {
-                // Create Excel file with sample data
+                // Create Excel file with Kanban data
                 const excelData = {
                     timestamp: new Date().toISOString(),
+                    shareLink: oneDriveConfig.shareLink,
+                    folderId: oneDriveConfig.folderId,
                     lists: lists,
                     cards: allCards
                 };
                 
                 // For demo purposes, show success message
-                alert(`Excel file "${oneDriveConfig.fileName}" will be created in OneDrive.\n\nPath: ${oneDriveConfig.folderPath}/${oneDriveConfig.fileName}\n\nNote: This requires Microsoft Graph API integration for actual OneDrive access.`);
+                alert(`Excel file "${oneDriveConfig.fileName}" will be created in OneDrive folder.\n\nShare Link: ${oneDriveConfig.shareLink}\nFolder ID: ${oneDriveConfig.folderId}\n\nNote: This requires Microsoft Graph API integration for actual OneDrive access.`);
                 
                 // Update status
                 updateConfigStatus();
@@ -573,24 +591,25 @@
         async function connectOneDrive() {
             saveOneDriveConfig();
             
-            if (!oneDriveConfig.userEmail) {
-                alert('Please enter your Microsoft 365 email address');
+            if (!oneDriveConfig.shareLink) {
+                alert('Please enter OneDrive share link');
                 return;
             }
             
             try {
-                // For demo purposes, simulate OneDrive connection
-                const isValidEmail = oneDriveConfig.userEmail.includes('@');
+                // Validate OneDrive share link format
+                const isValidLink = oneDriveConfig.shareLink.includes('1drv.ms') || 
+                                   oneDriveConfig.shareLink.includes('onedrive.live.com');
                 
-                if (isValidEmail) {
-                    alert(`✅ OneDrive connection initiated!\n\nAccount: ${oneDriveConfig.userEmail}\nFolder: ${oneDriveConfig.folderPath}\n\nNote: Actual OneDrive integration requires Microsoft Graph API authentication.`);
+                if (isValidLink && oneDriveConfig.folderId) {
+                    alert(`✅ OneDrive connection successful!\n\nShare Link: ${oneDriveConfig.shareLink}\nFolder ID: ${oneDriveConfig.folderId}\n\nNote: Actual OneDrive integration requires Microsoft Graph API authentication.`);
                     
                     // Simulate successful connection
                     oneDriveConfig.accessToken = 'demo-token';
                     saveOneDriveConfig();
                     updateConfigStatus();
                 } else {
-                    alert('❌ Invalid email format');
+                    alert('❌ Invalid OneDrive share link format\n\nPlease use a link like: https://1drv.ms/f/c/...');
                 }
                 
             } catch (error) {
