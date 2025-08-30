@@ -1,9 +1,9 @@
 {
   "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.16/MicrosoftTeams.schema.json",
   "manifestVersion": "1.16",
-  "version": "1.0.1",
-  "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567891",
-  "packageName": "com.mfec.diskanban",
+  "version": "2.0.0",
+  "id": "c3d4e5f6-a7b8-4012-cdef-345678901234",
+  "packageName": "com.mfec.diskanban.v2",
   "developer": {
     "name": "MFEC Development Team",
     "websiteUrl": "https://sakanarmmfec.github.io/mfeckanban",
@@ -15,25 +15,25 @@
     "outline": "outline.png"
   },
   "name": {
-    "short": "DISKanbanBoard",
-    "full": "DIS Kanban Board for Microsoft Teams"
+    "short": "DISKanbanBoard4",
+    "full": "DIS Kanban Board for Microsoft Teams v4"
   },
   "description": {
-    "short": "DIS Kanban board for task management",
-    "full": "DIS lightweight Kanban board application for managing tasks within Microsoft Teams with cloud storage support"
+    "short": "DIS Kanban board for task management v4",
+    "full": "DIS lightweight Kanban board application for managing tasks within Microsoft Teams with cloud storage support v4"
   },
   "accentColor": "#0078d4",
   "staticTabs": [
     {
-      "entityId": "dis-kanban-board",
-      "name": "DISKanbanBoard",
-      "contentUrl": "https://sakanarmmfec.github.io/mfeckanban/kanban.html",
+      "entityId": "dis-kanban-board-4",
+      "name": "DISKanbanBoard4",
+      "contentUrl": "https://sakanarmmfec.github.io/mfeckanban/kanban.html?v=2.0.0",
       "scopes": ["personal"]
     }
   ],
   "configurableTabs": [
     {
-      "configurationUrl": "https://sakanarmmfec.github.io/mfeckanban/config.html",
+      "configurationUrl": "https://sakanarmmfec.github.io/mfeckanban/config.html?v=2.0.0",
       "canUpdateConfiguration": true,
       "scopes": ["team", "groupchat"]
     }

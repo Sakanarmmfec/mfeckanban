@@ -44,9 +44,15 @@
         .add-list:hover { background: rgba(255,255,255,0.32); }
         .card-actions { position: absolute; top: 4px; right: 4px; opacity: 0; transition: opacity 0.2s; z-index: 100; }
         .card:hover .card-actions { opacity: 1; }
-        .delete-card { background: #eb5a46; color: white; border: none; width: 24px; height: 24px; border-radius: 50%; cursor: pointer; font-size: 16px; line-height: 1; display: flex; align-items: center; justify-content: center; font-weight: bold; }
+        /* Teams-specific visibility fix */
+        @media screen and (-ms-high-contrast: active), (-ms-high-contrast: none) {
+            .card-actions { opacity: 0.7; }
+            .card:hover .card-actions { opacity: 1; }
+        }
+        .delete-card { background: #eb5a46; color: white; border: none; width: 24px; height: 24px; border-radius: 50%; cursor: pointer; font-size: 16px; line-height: 1; display: flex; align-items: center; justify-content: center; font-weight: bold; z-index: 200; position: relative; }
         .delete-card:hover { background: #c53030; transform: scale(1.1); }
         .delete-card:active { transform: scale(0.95); }
+        .delete-card:focus { outline: 2px solid #fff; outline-offset: 2px; }
         .card.selected { border: 2px solid #0078d4; background: #f0f8ff; }
         .delete-selected { position: fixed; bottom: 20px; right: 20px; background: #eb5a46; color: white; padding: 12px 20px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; z-index: 1000; display: none; }
         .delete-selected:hover { background: #c53030; }
@@ -78,9 +84,10 @@
 <body>
     <div class="header">
         <h1>📋 DIS Kanban Board</h1>
-        <div style="font-size: 12px; color: rgba(255,255,255,0.8);">💡 DELETE: Triple-click OR Hold 2sec OR Right-click | EDIT: Double-click</div>
+        <div style="font-size: 12px; color: rgba(255,255,255,0.8);">💡 DELETE: X button OR Triple-click OR Hold 2sec OR Right-click | EDIT: Double-click</div>
         <button onclick="addNewList()">+ Add List</button>
         <button onclick="openConfigModal()">⚙️ Configuration</button>
+        <button onclick="showDebugInfo()" style="font-size: 11px;">🔍 Debug</button>
     </div>
     <div id="saveIndicator" class="save-indicator">Saved!</div>
     <div class="board-container">
@@ -172,11 +179,19 @@
     </div>
 
     <script>
-        // Initialize Teams
+        // Initialize Teams with enhanced compatibility
+        let isTeamsEnvironment = false;
         try {
             microsoftTeams.app.initialize();
+            isTeamsEnvironment = true;
+            console.log('✅ Teams environment detected');
+            
+            // Teams-specific settings
+            microsoftTeams.app.getContext().then(context => {
+                console.log('Teams context:', context);
+            });
         } catch (e) {
-            console.log('Not in Teams environment');
+            console.log('❌ Not in Teams environment:', e.message);
         }
         
         // Global variables
@@ -305,7 +320,7 @@
             
             cardEl.innerHTML = `
                 <div class="card-actions">
-                    <button class="delete-card">&times;</button>
+                    <button class="delete-card" data-card-id="${card.id}" data-card-title="${card.title}">&times;</button>
                 </div>
                 ${labels}
                 <div class="card-title" title="Double-click to edit, Triple-click to delete">${card.title}</div>
@@ -315,42 +330,33 @@
                 </div>
             `;
             
-            // Add delete button event listener
+            // Teams-compatible delete button with event delegation
             const deleteBtn = cardEl.querySelector('.delete-card');
             if (deleteBtn) {
-                deleteBtn.addEventListener('click', (e) => {
+                deleteBtn.addEventListener('click', function(e) {
                     e.preventDefault();
                     e.stopPropagation();
-                    console.log('Delete button clicked for card:', card.id);
                     
-                    if (confirm(`Delete "${card.title}"?`)) {
-                        console.log('User confirmed delete');
-                        
-                        // Remove from DOM
-                        cardEl.remove();
-                        
-                        // Remove from data
-                        allCards = allCards.filter(c => c.id != card.id);
-                        
-                        // Save
-                        saveData();
-                        
-                        console.log('Card deleted successfully');
+                    const cardId = this.getAttribute('data-card-id');
+                    const cardTitle = this.getAttribute('data-card-title');
+                    
+                    console.log('Delete button clicked:', cardId, cardTitle);
+                    
+                    if (confirm(`Delete "${cardTitle}"?`)) {
+                        performCardDelete(cardId, cardTitle, 'delete-button');
                     }
                 });
                 
                 console.log('Delete button event listener added for card:', card.id);
-            } else {
-                console.error('Delete button not found for card:', card.id);
             }
             
-            // Simple click counter for delete
+            // Teams-compatible click handling
             let clickCount = 0;
             let clickTimer = null;
             
-            cardEl.onclick = (e) => {
+            cardEl.addEventListener('click', function(e) {
                 if (e.target.classList.contains('delete-card')) {
-                    return;
+                    return false;
                 }
                 
                 hideContextMenu();
@@ -379,13 +385,15 @@
                     }
                     clickCount = 0;
                 }, 400);
-            };
+                
+                return false;
+            });
             
-            // Long press for mobile/Teams
+            // Teams-compatible long press
             let pressTimer = null;
             
-            cardEl.onmousedown = (e) => {
-                if (e.target.classList.contains('delete-card')) return;
+            cardEl.addEventListener('mousedown', function(e) {
+                if (e.target.classList.contains('delete-card')) return false;
                 
                 pressTimer = setTimeout(() => {
                     console.log('Long press detected - showing delete option');
@@ -393,27 +401,32 @@
                         performCardDelete(card.id, card.title, 'long-press');
                     }
                 }, 2000);
-            };
+                
+                return false;
+            });
             
-            cardEl.onmouseup = () => {
+            cardEl.addEventListener('mouseup', function() {
                 if (pressTimer) {
                     clearTimeout(pressTimer);
                     pressTimer = null;
                 }
-            };
+                return false;
+            });
             
-            cardEl.onmouseleave = () => {
+            cardEl.addEventListener('mouseleave', function() {
                 if (pressTimer) {
                     clearTimeout(pressTimer);
                     pressTimer = null;
                 }
-            };
+                return false;
+            });
             
-            // Right click - context menu
-            cardEl.oncontextmenu = (e) => {
+            // Teams-compatible right click
+            cardEl.addEventListener('contextmenu', function(e) {
                 e.preventDefault();
                 showContextMenu(e, card, cardEl);
-            };
+                return false;
+            });
             
             cardEl.ondragstart = (e) => {
                 e.dataTransfer.setData('application/json', JSON.stringify(card));
@@ -1049,9 +1062,14 @@
             const menu = document.createElement('div');
             menu.id = 'contextMenu';
             menu.className = 'context-menu';
+            
+            // Store references globally for Teams compatibility
+            window.currentContextCard = card;
+            window.currentContextElement = cardEl;
+            
             menu.innerHTML = `
-                <div class="context-menu-item" onclick="editCard(${JSON.stringify(card).replace(/"/g, '&quot;')}, cardEl)">✏️ Edit Card</div>
-                <div class="context-menu-item delete" onclick="confirmDeleteCard('${card.id}', '${card.title.replace(/'/g, "\\'")}')">🗑️ Delete Card</div>
+                <div class="context-menu-item" onclick="editContextCard(); return false;">✏️ Edit Card</div>
+                <div class="context-menu-item delete" onclick="window.confirmDeleteCard('${card.id}', '${card.title.replace(/'/g, "\\'").replace(/"/g, '&quot;')}'); return false;">🗑️ Delete Card</div>
             `;
             
             menu.style.left = e.pageX + 'px';
@@ -1064,6 +1082,14 @@
             menu.cardElement = cardEl;
         }
         
+        // Global function for context menu edit
+        window.editContextCard = function() {
+            if (window.currentContextCard && window.currentContextElement) {
+                editCard(window.currentContextCard, window.currentContextElement);
+                hideContextMenu();
+            }
+        };
+        
         function hideContextMenu() {
             const menu = document.getElementById('contextMenu');
             if (menu) {
@@ -1071,9 +1097,14 @@
             }
         }
         
-        function confirmDeleteCard(cardId, cardTitle) {
+        // Global function for context menu
+        window.confirmDeleteCard = function(cardId, cardTitle) {
             hideContextMenu();
-            performCardDelete(cardId, cardTitle, 'context menu');
+            performCardDelete(cardId, cardTitle, 'context-menu');
+        };
+        
+        function confirmDeleteCard(cardId, cardTitle) {
+            return window.confirmDeleteCard(cardId, cardTitle);
         }
         
         function deleteCurrentCard() {
@@ -1084,7 +1115,14 @@
             }
         }
         
-        function performCardDelete(cardId, cardTitle, source) {
+        // Global function for Teams compatibility
+        window.performCardDelete = function(cardId, cardTitle, source) {
+            console.log(`=== DELETE CARD REQUEST ===`);
+            console.log('Card ID:', cardId);
+            console.log('Card Title:', cardTitle);
+            console.log('Source:', source);
+            console.log('Teams Environment:', isTeamsEnvironment);
+            
             if (confirm(`Delete "${cardTitle}"?`)) {
                 console.log(`Deleting card via ${source}:`, cardId);
                 console.log('Cards before delete:', allCards.length);
@@ -1093,26 +1131,64 @@
                 const cardElement = document.querySelector(`[data-card-id="${cardId}"]`);
                 if (cardElement) {
                     cardElement.remove();
-                    console.log('Card element removed from DOM');
+                    console.log('✅ Card element removed from DOM');
                 } else {
-                    console.error('Card element not found in DOM');
+                    console.error('❌ Card element not found in DOM');
                 }
                 
                 // Remove from array
                 const originalLength = allCards.length;
                 allCards = allCards.filter(c => c.id != cardId);
-                console.log(`Cards after delete: ${allCards.length} (removed: ${originalLength - allCards.length})`);
+                console.log(`✅ Cards after delete: ${allCards.length} (removed: ${originalLength - allCards.length})`);
                 
                 // Save data with verification
                 saveDataWithVerification();
                 
-                console.log(`Card deleted successfully via ${source}`);
+                console.log(`✅ Card deleted successfully via ${source}`);
+                
+                // Show success indicator
+                showDeleteSuccess(cardTitle);
+            } else {
+                console.log('❌ User cancelled delete');
             }
+        };
+        
+        function performCardDelete(cardId, cardTitle, source) {
+            return window.performCardDelete(cardId, cardTitle, source);
         }
         
-        // Hide context menu when clicking elsewhere
-        document.addEventListener('click', (e) => {
+        function showDeleteSuccess(cardTitle) {
+            const indicator = document.createElement('div');
+            indicator.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: #dc3545;
+                color: white;
+                padding: 12px 20px;
+                border-radius: 6px;
+                font-size: 14px;
+                z-index: 1002;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            `;
+            indicator.textContent = `🗑️ Deleted: ${cardTitle}`;
+            document.body.appendChild(indicator);
+            
+            setTimeout(() => {
+                indicator.remove();
+            }, 3000);
+        }
+        
+        // Teams-compatible context menu hiding
+        document.addEventListener('click', function(e) {
             if (!e.target.closest('.context-menu')) {
+                hideContextMenu();
+            }
+        });
+        
+        document.addEventListener('contextmenu', function(e) {
+            // Allow context menu on cards only
+            if (!e.target.closest('.card')) {
                 hideContextMenu();
             }
         });
@@ -1129,8 +1205,36 @@
             }
         });
         
+        // Debug function for Teams troubleshooting
+        window.showDebugInfo = function() {
+            const info = {
+                'Teams Environment': isTeamsEnvironment,
+                'Total Cards': allCards.length,
+                'Storage Type': storageConfig.type,
+                'User Agent': navigator.userAgent.includes('Teams') ? 'Teams Client' : 'Browser',
+                'Delete Methods': 'X button, Triple-click, Long-press, Right-click',
+                'Last Save': localStorage.getItem('kanban-cards') ? 'Available' : 'None'
+            };
+            
+            let debugText = '=== KANBAN DEBUG INFO ===\n';
+            Object.entries(info).forEach(([key, value]) => {
+                debugText += `${key}: ${value}\n`;
+            });
+            
+            alert(debugText);
+            console.log('Debug Info:', info);
+        };
+        
         // Start the app
         init();
+        
+        // Log initialization complete
+        setTimeout(() => {
+            console.log('=== KANBAN INITIALIZATION COMPLETE ===');
+            console.log('Teams Environment:', isTeamsEnvironment);
+            console.log('Cards Loaded:', allCards.length);
+            console.log('Delete Methods Available: X button, Triple-click, Long-press, Right-click');
+        }, 1000);
     </script>
 </body>
 </html>
