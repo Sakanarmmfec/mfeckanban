@@ -50,6 +50,12 @@
         .card.selected { border: 2px solid #0078d4; background: #f0f8ff; }
         .delete-selected { position: fixed; bottom: 20px; right: 20px; background: #eb5a46; color: white; padding: 12px 20px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; z-index: 1000; display: none; }
         .delete-selected:hover { background: #c53030; }
+        .context-menu { position: absolute; background: white; border: 1px solid #ddd; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); z-index: 1000; display: none; min-width: 120px; }
+        .context-menu-item { padding: 8px 12px; cursor: pointer; font-size: 14px; border-bottom: 1px solid #eee; }
+        .context-menu-item:hover { background: #f5f5f5; }
+        .context-menu-item:last-child { border-bottom: none; }
+        .context-menu-item.delete { color: #eb5a46; }
+        .context-menu-item.delete:hover { background: #ffeaea; }
         .dragging { opacity: 0.5; transform: rotate(5deg); }
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; }
         .modal-content { background: white; margin: 50px auto; padding: 0; width: 500px; border-radius: 3px; }
@@ -317,6 +323,8 @@
                     return; // Let delete button handle this
                 }
                 
+                hideContextMenu();
+                
                 // Single click - select/deselect card
                 clearTimeout(clickTimeout);
                 clickTimeout = setTimeout(() => {
@@ -329,6 +337,12 @@
                         editCard(card, cardEl);
                     }
                 }, 200);
+            };
+            
+            // Right click - context menu
+            cardEl.oncontextmenu = (e) => {
+                e.preventDefault();
+                showContextMenu(e, card, cardEl);
             };
             
             // Double click - edit card
@@ -900,17 +914,68 @@
             }
         }
         
-        // Add keyboard shortcuts
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Delete' || e.key === 'Backspace') {
-                const selectedCards = document.querySelectorAll('.card.selected');
-                if (selectedCards.length > 0) {
-                    e.preventDefault();
-                    deleteSelectedCards();
-                }
-            }
+        // Context menu functions
+        function showContextMenu(e, card, cardEl) {
+            hideContextMenu();
             
+            const menu = document.createElement('div');
+            menu.id = 'contextMenu';
+            menu.className = 'context-menu';
+            menu.innerHTML = `
+                <div class="context-menu-item" onclick="editCard(${JSON.stringify(card).replace(/"/g, '&quot;')}, cardEl)">✏️ Edit Card</div>
+                <div class="context-menu-item delete" onclick="confirmDeleteCard('${card.id}', '${card.title.replace(/'/g, "\\'")}')">🗑️ Delete Card</div>
+            `;
+            
+            menu.style.left = e.pageX + 'px';
+            menu.style.top = e.pageY + 'px';
+            menu.style.display = 'block';
+            
+            document.body.appendChild(menu);
+            
+            // Store card reference
+            menu.cardElement = cardEl;
+        }
+        
+        function hideContextMenu() {
+            const menu = document.getElementById('contextMenu');
+            if (menu) {
+                menu.remove();
+            }
+        }
+        
+        function confirmDeleteCard(cardId, cardTitle) {
+            hideContextMenu();
+            
+            if (confirm(`Delete "${cardTitle}"?`)) {
+                console.log('Deleting card via context menu:', cardId);
+                
+                // Find and remove card element
+                const cardElement = document.querySelector(`[data-card-id="${cardId}"]`);
+                if (cardElement) {
+                    cardElement.remove();
+                }
+                
+                // Remove from array
+                allCards = allCards.filter(c => c.id != cardId);
+                
+                // Save data
+                saveData();
+                
+                console.log('Card deleted successfully via context menu');
+            }
+        }
+        
+        // Hide context menu when clicking elsewhere
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.context-menu')) {
+                hideContextMenu();
+            }
+        });
+        
+        // Add keyboard shortcuts (simplified for Teams)
+        document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
+                hideContextMenu();
                 // Deselect all cards
                 document.querySelectorAll('.card.selected').forEach(card => {
                     card.classList.remove('selected');
