@@ -552,17 +552,32 @@
                 return;
             }
             
+            if (!storageConfig.accessToken) {
+                alert('Please enter Access Token first');
+                return;
+            }
+            
             try {
-                const testData = { test: 'connection', timestamp: new Date().toISOString() };
+                console.log('Testing connection...');
+                console.log('Bin ID:', storageConfig.apiUrl);
+                console.log('Access Token:', storageConfig.accessToken.substring(0, 10) + '...');
+                
+                const testData = { 
+                    test: 'connection', 
+                    timestamp: new Date().toISOString(),
+                    message: 'Test from Kanban App'
+                };
+                
                 const success = await saveToCloud(testData, true);
                 
                 if (success) {
-                    alert('✅ Connection test successful!');
+                    alert('✅ Connection test successful!\n\nData saved to JSONBin successfully.');
                 } else {
-                    alert('❌ Connection test failed');
+                    alert('❌ Connection test failed\n\nCheck Console (F12) for detailed error messages.');
                 }
             } catch (error) {
-                alert(`❌ Connection error: ${error.message}`);
+                console.error('Test connection error:', error);
+                alert(`❌ Connection error: ${error.message}\n\nCommon issues:\n- Invalid Bin ID\n- Invalid Access Token\n- Network/CORS issues`);
             }
         }
         
@@ -611,32 +626,62 @@
         async function saveToJSONBin(data, isTest) {
             try {
                 const url = `https://api.jsonbin.io/v3/b/${storageConfig.apiUrl}`;
-                console.log('Saving to JSONBin:', url);
+                console.log('=== JSONBin Save Request ===');
+                console.log('URL:', url);
+                console.log('Method: PUT');
+                console.log('Headers:', {
+                    'Content-Type': 'application/json',
+                    'X-Master-Key': storageConfig.accessToken.substring(0, 10) + '...'
+                });
+                
+                const payload = {
+                    appName: 'Kanban Teams App',
+                    lastUpdated: new Date().toISOString(),
+                    ...data
+                };
+                console.log('Payload:', payload);
                 
                 const response = await fetch(url, {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
-                        'X-Master-Key': storageConfig.accessToken
+                        'X-Master-Key': storageConfig.accessToken,
+                        'X-Bin-Private': 'false'
                     },
-                    body: JSON.stringify({
-                        appName: 'Kanban Teams App',
-                        lastUpdated: new Date().toISOString(),
-                        ...data
-                    })
+                    body: JSON.stringify(payload)
                 });
+                
+                console.log('Response status:', response.status);
+                console.log('Response headers:', Object.fromEntries(response.headers.entries()));
                 
                 if (response.ok) {
                     const result = await response.json();
-                    console.log('JSONBin save success:', result);
+                    console.log('✅ JSONBin save SUCCESS:', result);
                     return true;
                 } else {
-                    const error = await response.text();
-                    console.error('JSONBin save error:', response.status, error);
+                    const errorText = await response.text();
+                    console.error('❌ JSONBin save FAILED:');
+                    console.error('Status:', response.status, response.statusText);
+                    console.error('Error:', errorText);
+                    
+                    // Show specific error messages
+                    if (response.status === 401) {
+                        console.error('Authentication failed - check Access Token');
+                    } else if (response.status === 404) {
+                        console.error('Bin not found - check Bin ID');
+                    } else if (response.status === 403) {
+                        console.error('Permission denied - check bin permissions');
+                    }
+                    
                     return false;
                 }
             } catch (error) {
-                console.error('JSONBin save exception:', error);
+                console.error('❌ JSONBin save EXCEPTION:', error);
+                
+                if (error.name === 'TypeError' && error.message.includes('fetch')) {
+                    console.error('Network error - check internet connection or CORS policy');
+                }
+                
                 return false;
             }
         }
@@ -644,7 +689,9 @@
         async function loadFromJSONBin() {
             try {
                 const url = `https://api.jsonbin.io/v3/b/${storageConfig.apiUrl}/latest`;
-                console.log('Loading from JSONBin:', url);
+                console.log('=== JSONBin Load Request ===');
+                console.log('URL:', url);
+                console.log('Method: GET');
                 
                 const response = await fetch(url, {
                     headers: {
@@ -652,17 +699,21 @@
                     }
                 });
                 
+                console.log('Response status:', response.status);
+                
                 if (response.ok) {
                     const result = await response.json();
-                    console.log('JSONBin load success:', result);
+                    console.log('✅ JSONBin load SUCCESS:', result);
                     return result.record;
                 } else {
-                    const error = await response.text();
-                    console.error('JSONBin load error:', response.status, error);
+                    const errorText = await response.text();
+                    console.error('❌ JSONBin load FAILED:');
+                    console.error('Status:', response.status, response.statusText);
+                    console.error('Error:', errorText);
                     return null;
                 }
             } catch (error) {
-                console.error('JSONBin load exception:', error);
+                console.error('❌ JSONBin load EXCEPTION:', error);
                 return null;
             }
         }
