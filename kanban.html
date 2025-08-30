@@ -66,7 +66,7 @@
 <body>
     <div class="header">
         <h1>📋 Product Roadmap</h1>
-        <button onclick="addList()">+ Add List</button>
+        <button onclick="(function(){ const name = prompt('Enter list name:'); if (name && name.trim() && !lists.includes(name)) { lists.push(name); localStorage.setItem('kanban-lists', JSON.stringify(lists)); initBoard(); } })()">+ Add List</button>
     </div>
     <div class="board-container">
         <div class="board" id="board"></div>
@@ -289,17 +289,15 @@
             const addListEl = document.createElement('div');
             addListEl.className = 'add-list';
             addListEl.innerHTML = '+ Add another list';
-            addListEl.onclick = addList;
+            addListEl.onclick = function() {
+                const name = prompt('Enter list name:');
+                if (name && name.trim() && !lists.includes(name)) {
+                    lists.push(name);
+                    localStorage.setItem('kanban-lists', JSON.stringify(lists));
+                    initBoard();
+                }
+            };
             board.appendChild(addListEl);
-        }
-        
-        function addList() {
-            const name = prompt('Enter list name:');
-            if (name && !lists.includes(name)) {
-                lists.push(name);
-                localStorage.setItem('kanban-lists', JSON.stringify(lists));
-                initBoard();
-            }
         }
         
         async function deleteList(name) {
