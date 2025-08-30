@@ -12,6 +12,8 @@
         .header h1 { margin: 0; font-size: 18px; font-weight: 700; }
         .header button { background: rgba(255,255,255,0.24); color: white; border: none; padding: 8px 12px; border-radius: 3px; cursor: pointer; font-size: 14px; }
         .header button:hover { background: rgba(255,255,255,0.3); }
+        .save-indicator { position: fixed; top: 20px; right: 20px; background: #28a745; color: white; padding: 8px 16px; border-radius: 4px; font-size: 12px; opacity: 0; transition: opacity 0.3s; z-index: 1001; }
+        .save-indicator.show { opacity: 1; }
         .board-container { padding: 20px; overflow-x: auto; height: calc(100vh - 60px); }
         .board { display: flex; gap: 12px; min-height: 100%; }
         .list { background: #ebecf0; border-radius: 3px; padding: 8px; min-width: 272px; max-width: 272px; height: fit-content; }
@@ -67,7 +69,9 @@
     <div class="header">
         <h1>📋 Product Roadmap</h1>
         <button onclick="addNewList()">+ Add List</button>
+        <button onclick="clearAllData()" style="background: rgba(220,53,69,0.8);">Clear All Data</button>
     </div>
+    <div id="saveIndicator" class="save-indicator">Saved!</div>
     <div class="board-container">
         <div class="board" id="board"></div>
     </div>
@@ -167,7 +171,7 @@
             const name = prompt('Enter list name:');
             if (name && name.trim() && !lists.includes(name)) {
                 lists.push(name);
-                localStorage.setItem('kanban-lists', JSON.stringify(lists));
+                saveData();
                 initBoard();
                 loadCards();
             }
@@ -190,8 +194,7 @@
                 });
                 
                 // Save and refresh
-                localStorage.setItem('kanban-lists', JSON.stringify(lists));
-                localStorage.setItem('kanban-cards', JSON.stringify(allCards));
+                saveData();
                 initBoard();
                 loadCards();
             }
@@ -201,8 +204,7 @@
             if (confirm(`Delete "${name}" list?`)) {
                 lists = lists.filter(l => l !== name);
                 allCards = allCards.filter(c => c.status !== name);
-                localStorage.setItem('kanban-lists', JSON.stringify(lists));
-                localStorage.setItem('kanban-cards', JSON.stringify(allCards));
+                saveData();
                 initBoard();
                 loadCards();
             }
@@ -311,7 +313,7 @@
                 if (card) {
                     const cardId = card.dataset.cardId;
                     allCards = allCards.filter(c => c.id != cardId);
-                    localStorage.setItem('kanban-cards', JSON.stringify(allCards));
+                    saveData();
                     card.remove();
                 }
             }
@@ -355,7 +357,7 @@
                     const cardIndex = allCards.findIndex(c => c.id == cardId);
                     if (cardIndex !== -1) {
                         allCards[cardIndex].status = newStatus;
-                        localStorage.setItem('kanban-cards', JSON.stringify(allCards));
+                        saveData();
                     }
                     draggedCard.remove();
                 }
@@ -393,21 +395,56 @@
                 }
             }
             
-            localStorage.setItem('kanban-cards', JSON.stringify(allCards));
+            saveData();
             closeModal();
         };
         
+        // Save data with visual feedback
+        function saveData() {
+            localStorage.setItem('kanban-cards', JSON.stringify(allCards));
+            localStorage.setItem('kanban-lists', JSON.stringify(lists));
+            showSaveIndicator();
+            console.log('Data saved:', { lists, cards: allCards.length });
+        }
+        
+        function showSaveIndicator() {
+            const indicator = document.getElementById('saveIndicator');
+            indicator.classList.add('show');
+            setTimeout(() => {
+                indicator.classList.remove('show');
+            }, 2000);
+        }
+        
+        function clearAllData() {
+            if (confirm('Clear all data? This cannot be undone.')) {
+                localStorage.removeItem('kanban-cards');
+                localStorage.removeItem('kanban-lists');
+                location.reload();
+            }
+        }
+        
         // Load cards from localStorage
         function loadCards() {
+            // Clear existing cards first
+            document.querySelectorAll('.cards').forEach(list => {
+                list.innerHTML = '';
+            });
+            
             const savedCards = localStorage.getItem('kanban-cards');
             if (savedCards) {
-                allCards = JSON.parse(savedCards);
-                allCards.forEach(card => {
-                    const listEl = document.getElementById(card.status.replace(/[^a-zA-Z0-9]/g, ''));
-                    if (listEl) {
-                        listEl.appendChild(createCardElement(card));
-                    }
-                });
+                try {
+                    allCards = JSON.parse(savedCards);
+                    console.log('Loaded cards:', allCards.length);
+                    allCards.forEach(card => {
+                        const listEl = document.getElementById(card.status.replace(/[^a-zA-Z0-9]/g, ''));
+                        if (listEl) {
+                            listEl.appendChild(createCardElement(card));
+                        }
+                    });
+                } catch (e) {
+                    console.error('Error loading cards:', e);
+                    allCards = [];
+                }
             } else {
                 // Add sample cards
                 const sampleCards = [
@@ -418,7 +455,7 @@
                 ];
                 
                 allCards = sampleCards;
-                localStorage.setItem('kanban-cards', JSON.stringify(allCards));
+                saveData();
                 
                 sampleCards.forEach(card => {
                     const listEl = document.getElementById(card.status.replace(/[^a-zA-Z0-9]/g, ''));
@@ -433,9 +470,15 @@
         function loadLists() {
             const savedLists = localStorage.getItem('kanban-lists');
             if (savedLists) {
-                lists = JSON.parse(savedLists);
+                try {
+                    lists = JSON.parse(savedLists);
+                    console.log('Loaded lists:', lists);
+                } catch (e) {
+                    console.error('Error loading lists:', e);
+                    lists = ['📋 Backlog', '🔄 In Progress', '👀 Review', '✅ Done'];
+                }
             } else {
-                localStorage.setItem('kanban-lists', JSON.stringify(lists));
+                saveData();
             }
         }
         
