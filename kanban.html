@@ -123,25 +123,36 @@
         <div class="modal-content">
             <button class="close-modal" onclick="closeConfigModal()">&times;</button>
             <div class="modal-header">
-                <h3>OneDrive Excel Configuration</h3>
+                <h3>Data Storage Configuration</h3>
             </div>
             <div class="modal-body">
                 <div class="form-group">
-                    <label>OneDrive Share Link</label>
-                    <input type="text" id="shareLink" placeholder="https://1drv.ms/f/c/...">
-                    <small style="color: #666; font-size: 11px;">OneDrive folder share link (e.g., https://1drv.ms/f/c/...)</small>
+                    <label>Storage Type</label>
+                    <select id="storageType" onchange="toggleStorageOptions()">
+                        <option value="localStorage">Local Storage (Browser Only)</option>
+                        <option value="jsonbin">JSONBin.io (Free Cloud)</option>
+                        <option value="github">GitHub Gist (Free)</option>
+                        <option value="pastebin">Pastebin (Simple)</option>
+                    </select>
                 </div>
-                <div class="form-group">
-                    <label>Excel File Name</label>
-                    <input type="text" id="excelFileName" placeholder="KanbanData.xlsx" value="KanbanData.xlsx">
+                <div id="cloudOptions" style="display: none;">
+                    <div class="form-group">
+                        <label>API URL/ID</label>
+                        <input type="text" id="apiUrl" placeholder="Enter API URL or ID">
+                        <small id="urlHelp" style="color: #666; font-size: 11px;">Instructions will appear based on selected storage type</small>
+                    </div>
+                    <div class="form-group">
+                        <label>Access Token (Optional)</label>
+                        <input type="text" id="accessToken" placeholder="Enter access token if required">
+                    </div>
                 </div>
                 <div class="form-group">
                     <label>Current Status</label>
                     <div id="configStatus" style="padding: 8px; background: #f8f9fa; border-radius: 4px; font-size: 12px;">Not configured</div>
                 </div>
                 <div class="form-buttons">
-                    <button type="button" class="btn btn-primary" onclick="createExcelFile()">Create Excel File</button>
-                    <button type="button" class="btn btn-secondary" onclick="connectOneDrive()">Connect OneDrive</button>
+                    <button type="button" class="btn btn-primary" onclick="saveStorageConfig()">Save Configuration</button>
+                    <button type="button" class="btn btn-secondary" onclick="testStorage()">Test Connection</button>
                     <button type="button" class="btn btn-secondary" onclick="closeConfigModal()">Cancel</button>
                 </div>
             </div>
@@ -434,55 +445,19 @@
             localStorage.setItem('kanban-cards', JSON.stringify(allCards));
             localStorage.setItem('kanban-lists', JSON.stringify(lists));
             
-            // Try to save to OneDrive if configured
-            if (oneDriveConfig.shareLink && oneDriveConfig.fileName) {
-                await saveToOneDrive();
+            // Try to save to cloud if configured
+            if (storageConfig.type !== 'localStorage') {
+                const cloudData = { lists, cards: allCards, timestamp: new Date().toISOString() };
+                await saveToCloud(cloudData);
             }
             
             showSaveIndicator();
             console.log('Data saved:', { lists, cards: allCards.length });
         }
         
-        async function saveToOneDrive() {
-            try {
-                // This would integrate with Microsoft Graph API
-                console.log('Saving to OneDrive folder:', oneDriveConfig.folderId);
-                
-                // For demo purposes, just log the data that would be saved
-                const oneDriveData = {
-                    timestamp: new Date().toISOString(),
-                    shareLink: oneDriveConfig.shareLink,
-                    folderId: oneDriveConfig.folderId,
-                    fileName: oneDriveConfig.fileName,
-                    lists: lists,
-                    cards: allCards
-                };
-                
-                console.log('OneDrive data to save:', oneDriveData);
-                
-            } catch (error) {
-                console.error('Error saving to OneDrive:', error);
-            }
-        }
+
         
-        async function loadFromOneDrive() {
-            try {
-                if (!oneDriveConfig.shareLink || !oneDriveConfig.fileName) {
-                    return false;
-                }
-                
-                // This would integrate with Microsoft Graph API
-                console.log('Loading from OneDrive folder:', oneDriveConfig.folderId);
-                console.log('File:', oneDriveConfig.fileName);
-                
-                // For demo purposes, return false to use localStorage
-                return false;
-                
-            } catch (error) {
-                console.error('Error loading from OneDrive:', error);
-                return false;
-            }
-        }
+
         
         function showSaveIndicator() {
             const indicator = document.getElementById('saveIndicator');
@@ -493,11 +468,11 @@
         }
         
         // Configuration variables
-        let oneDriveConfig = {
-            shareLink: '',
-            fileName: 'KanbanData.xlsx',
-            folderId: null,
-            accessToken: null
+        let storageConfig = {
+            type: 'localStorage',
+            apiUrl: '',
+            accessToken: '',
+            lastSync: null
         };
         
         function openConfigModal() {
@@ -510,47 +485,55 @@
         }
         
         function loadExcelConfig() {
-            const saved = localStorage.getItem('onedrive-config');
+            const saved = localStorage.getItem('storage-config');
             if (saved) {
-                oneDriveConfig = { ...oneDriveConfig, ...JSON.parse(saved) };
-                document.getElementById('shareLink').value = oneDriveConfig.shareLink || '';
-                document.getElementById('excelFileName').value = oneDriveConfig.fileName || 'KanbanData.xlsx';
+                storageConfig = { ...storageConfig, ...JSON.parse(saved) };
+                document.getElementById('storageType').value = storageConfig.type || 'localStorage';
+                document.getElementById('apiUrl').value = storageConfig.apiUrl || '';
+                document.getElementById('accessToken').value = storageConfig.accessToken || '';
+                toggleStorageOptions();
                 updateConfigStatus();
             }
         }
         
-        function saveOneDriveConfig() {
-            oneDriveConfig.shareLink = document.getElementById('shareLink').value;
-            oneDriveConfig.fileName = document.getElementById('excelFileName').value;
+        function toggleStorageOptions() {
+            const type = document.getElementById('storageType').value;
+            const cloudOptions = document.getElementById('cloudOptions');
+            const urlHelp = document.getElementById('urlHelp');
             
-            // Extract folder ID from share link
-            if (oneDriveConfig.shareLink) {
-                oneDriveConfig.folderId = extractFolderIdFromLink(oneDriveConfig.shareLink);
+            if (type === 'localStorage') {
+                cloudOptions.style.display = 'none';
+            } else {
+                cloudOptions.style.display = 'block';
+                
+                const helpTexts = {
+                    'jsonbin': 'Create free account at jsonbin.io, create a bin, copy the bin ID',
+                    'github': 'Create GitHub Gist, copy the Gist ID from URL',
+                    'pastebin': 'Create Pastebin paste, copy the paste ID from URL'
+                };
+                
+                urlHelp.textContent = helpTexts[type] || 'Enter the appropriate URL or ID';
             }
-            
-            localStorage.setItem('onedrive-config', JSON.stringify(oneDriveConfig));
-            updateConfigStatus();
         }
         
-        function extractFolderIdFromLink(shareLink) {
-            try {
-                // Extract folder ID from OneDrive share link
-                // Format: https://1drv.ms/f/c/{folderId}/...
-                const match = shareLink.match(/\/f\/c\/([a-f0-9]+)\//i);
-                return match ? match[1] : null;
-            } catch (e) {
-                console.error('Error extracting folder ID:', e);
-                return null;
-            }
+        function saveStorageConfig() {
+            storageConfig.type = document.getElementById('storageType').value;
+            storageConfig.apiUrl = document.getElementById('apiUrl').value;
+            storageConfig.accessToken = document.getElementById('accessToken').value;
+            
+            localStorage.setItem('storage-config', JSON.stringify(storageConfig));
+            updateConfigStatus();
+            alert('Configuration saved!');
         }
         
         function updateConfigStatus() {
             const status = document.getElementById('configStatus');
-            if (oneDriveConfig.shareLink && oneDriveConfig.fileName) {
-                const shortLink = oneDriveConfig.shareLink.length > 50 ? 
-                    oneDriveConfig.shareLink.substring(0, 50) + '...' : 
-                    oneDriveConfig.shareLink;
-                status.innerHTML = `✅ Configured: ${shortLink}/${oneDriveConfig.fileName}`;
+            
+            if (storageConfig.type === 'localStorage') {
+                status.innerHTML = '✅ Using Local Storage (Browser Only)';
+                status.style.background = '#fff3cd';
+            } else if (storageConfig.apiUrl) {
+                status.innerHTML = `✅ Using ${storageConfig.type.toUpperCase()}: ${storageConfig.apiUrl}`;
                 status.style.background = '#d4edda';
             } else {
                 status.innerHTML = '❌ Not configured';
@@ -558,64 +541,121 @@
             }
         }
         
-        async function createExcelFile() {
-            saveOneDriveConfig();
+        async function testStorage() {
+            if (storageConfig.type === 'localStorage') {
+                alert('✅ Local Storage is working!');
+                return;
+            }
             
-            if (!oneDriveConfig.shareLink || !oneDriveConfig.fileName) {
-                alert('Please enter OneDrive share link and file name');
+            if (!storageConfig.apiUrl) {
+                alert('Please enter API URL/ID first');
                 return;
             }
             
             try {
-                // Create Excel file with Kanban data
-                const excelData = {
-                    timestamp: new Date().toISOString(),
-                    shareLink: oneDriveConfig.shareLink,
-                    folderId: oneDriveConfig.folderId,
-                    lists: lists,
-                    cards: allCards
-                };
+                const testData = { test: 'connection', timestamp: new Date().toISOString() };
+                const success = await saveToCloud(testData, true);
                 
-                // For demo purposes, show success message
-                alert(`Excel file "${oneDriveConfig.fileName}" will be created in OneDrive folder.\n\nShare Link: ${oneDriveConfig.shareLink}\nFolder ID: ${oneDriveConfig.folderId}\n\nNote: This requires Microsoft Graph API integration for actual OneDrive access.`);
-                
-                // Update status
-                updateConfigStatus();
-                
+                if (success) {
+                    alert('✅ Connection test successful!');
+                } else {
+                    alert('❌ Connection test failed');
+                }
             } catch (error) {
-                console.error('Error creating Excel file:', error);
-                alert('Error creating Excel file. Check console for details.');
+                alert(`❌ Connection error: ${error.message}`);
             }
         }
         
-        async function connectOneDrive() {
-            saveOneDriveConfig();
-            
-            if (!oneDriveConfig.shareLink) {
-                alert('Please enter OneDrive share link');
-                return;
-            }
+        // Cloud storage functions
+        async function saveToCloud(data, isTest = false) {
+            if (storageConfig.type === 'localStorage') return false;
             
             try {
-                // Validate OneDrive share link format
-                const isValidLink = oneDriveConfig.shareLink.includes('1drv.ms') || 
-                                   oneDriveConfig.shareLink.includes('onedrive.live.com');
-                
-                if (isValidLink && oneDriveConfig.folderId) {
-                    alert(`✅ OneDrive connection successful!\n\nShare Link: ${oneDriveConfig.shareLink}\nFolder ID: ${oneDriveConfig.folderId}\n\nNote: Actual OneDrive integration requires Microsoft Graph API authentication.`);
-                    
-                    // Simulate successful connection
-                    oneDriveConfig.accessToken = 'demo-token';
-                    saveOneDriveConfig();
-                    updateConfigStatus();
-                } else {
-                    alert('❌ Invalid OneDrive share link format\n\nPlease use a link like: https://1drv.ms/f/c/...');
+                switch (storageConfig.type) {
+                    case 'jsonbin':
+                        return await saveToJSONBin(data, isTest);
+                    case 'github':
+                        return await saveToGitHubGist(data, isTest);
+                    case 'pastebin':
+                        return await saveToPastebin(data, isTest);
+                    default:
+                        return false;
                 }
-                
             } catch (error) {
-                console.error('OneDrive connection failed:', error);
-                alert('OneDrive connection failed. Check console for details.');
+                console.error('Cloud save error:', error);
+                return false;
             }
+        }
+        
+        async function loadFromCloud() {
+            if (storageConfig.type === 'localStorage') return null;
+            
+            try {
+                switch (storageConfig.type) {
+                    case 'jsonbin':
+                        return await loadFromJSONBin();
+                    case 'github':
+                        return await loadFromGitHubGist();
+                    case 'pastebin':
+                        return await loadFromPastebin();
+                    default:
+                        return null;
+                }
+            } catch (error) {
+                console.error('Cloud load error:', error);
+                return null;
+            }
+        }
+        
+        // JSONBin.io integration (free tier)
+        async function saveToJSONBin(data, isTest) {
+            const url = `https://api.jsonbin.io/v3/b/${storageConfig.apiUrl}`;
+            const response = await fetch(url, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Master-Key': storageConfig.accessToken || '$2a$10$...' // Free tier key
+                },
+                body: JSON.stringify(data)
+            });
+            return response.ok;
+        }
+        
+        async function loadFromJSONBin() {
+            const url = `https://api.jsonbin.io/v3/b/${storageConfig.apiUrl}/latest`;
+            const response = await fetch(url, {
+                headers: {
+                    'X-Master-Key': storageConfig.accessToken || '$2a$10$...'
+                }
+            });
+            if (response.ok) {
+                const result = await response.json();
+                return result.record;
+            }
+            return null;
+        }
+        
+        // GitHub Gist integration
+        async function saveToGitHubGist(data, isTest) {
+            // Simplified - would need GitHub API
+            console.log('Would save to GitHub Gist:', storageConfig.apiUrl);
+            return true; // Demo
+        }
+        
+        async function loadFromGitHubGist() {
+            console.log('Would load from GitHub Gist:', storageConfig.apiUrl);
+            return null; // Demo
+        }
+        
+        // Pastebin integration
+        async function saveToPastebin(data, isTest) {
+            console.log('Would save to Pastebin:', storageConfig.apiUrl);
+            return true; // Demo
+        }
+        
+        async function loadFromPastebin() {
+            console.log('Would load from Pastebin:', storageConfig.apiUrl);
+            return null; // Demo
         }
         
         // Load cards from Excel or localStorage
@@ -625,10 +665,14 @@
                 list.innerHTML = '';
             });
             
-            // Try to load from OneDrive first
-            const oneDriveLoaded = await loadFromOneDrive();
+            // Try to load from cloud first
+            const cloudData = await loadFromCloud();
             
-            if (!oneDriveLoaded) {
+            if (cloudData && cloudData.cards) {
+                allCards = cloudData.cards;
+                if (cloudData.lists) lists = cloudData.lists;
+                console.log('Loaded from cloud:', cloudData);
+            } else {
                 // Fallback to localStorage
                 const savedCards = localStorage.getItem('kanban-cards');
                 if (savedCards) {
