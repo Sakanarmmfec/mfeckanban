@@ -123,6 +123,7 @@
                     <div class="form-buttons">
                         <button type="submit" class="btn btn-primary">Save Card</button>
                         <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                        <button type="button" class="btn" id="deleteCardBtn" style="background: #eb5a46; color: white; display: none;" onclick="deleteCurrentCard()">🗑️ Delete Card</button>
                     </div>
                 </form>
             </div>
@@ -265,6 +266,11 @@
             editingCard = null;
             document.getElementById('modalTitle').textContent = 'Add Card';
             document.getElementById('cardForm').reset();
+            
+            // Hide delete button for new cards
+            const deleteBtn = document.getElementById('deleteCardBtn');
+            deleteBtn.style.display = 'none';
+            
             document.getElementById('cardModal').style.display = 'block';
         }
         
@@ -410,6 +416,11 @@
             document.getElementById('assignedTo').value = card.assignedTo || '';
             document.getElementById('dueDate').value = card.dueDate || '';
             document.getElementById('priority').value = card.priority || '';
+            
+            // Show delete button for existing cards
+            const deleteBtn = document.getElementById('deleteCardBtn');
+            deleteBtn.style.display = 'inline-block';
+            
             document.getElementById('cardModal').style.display = 'block';
         }
         
@@ -531,6 +542,22 @@
             
             showSaveIndicator();
             console.log('Data saved:', { lists, cards: allCards.length });
+        }
+        
+        async function saveDataWithVerification() {
+            await saveData();
+            
+            // Verify save
+            setTimeout(() => {
+                const savedCards = localStorage.getItem('kanban-cards');
+                if (savedCards) {
+                    const parsed = JSON.parse(savedCards);
+                    console.log('Verification - Cards in localStorage:', parsed.length);
+                    console.log('Verification - Cards in memory:', allCards.length);
+                } else {
+                    console.error('Verification failed - No cards in localStorage');
+                }
+            }, 100);
         }
         
 
@@ -967,23 +994,40 @@
         
         function confirmDeleteCard(cardId, cardTitle) {
             hideContextMenu();
-            
+            performCardDelete(cardId, cardTitle, 'context menu');
+        }
+        
+        function deleteCurrentCard() {
+            if (editingCard && editingCard.card) {
+                const card = editingCard.card;
+                closeModal();
+                performCardDelete(card.id, card.title, 'edit modal');
+            }
+        }
+        
+        function performCardDelete(cardId, cardTitle, source) {
             if (confirm(`Delete "${cardTitle}"?`)) {
-                console.log('Deleting card via context menu:', cardId);
+                console.log(`Deleting card via ${source}:`, cardId);
+                console.log('Cards before delete:', allCards.length);
                 
                 // Find and remove card element
                 const cardElement = document.querySelector(`[data-card-id="${cardId}"]`);
                 if (cardElement) {
                     cardElement.remove();
+                    console.log('Card element removed from DOM');
+                } else {
+                    console.error('Card element not found in DOM');
                 }
                 
                 // Remove from array
+                const originalLength = allCards.length;
                 allCards = allCards.filter(c => c.id != cardId);
+                console.log(`Cards after delete: ${allCards.length} (removed: ${originalLength - allCards.length})`);
                 
-                // Save data
-                saveData();
+                // Save data with verification
+                saveDataWithVerification();
                 
-                console.log('Card deleted successfully via context menu');
+                console.log(`Card deleted successfully via ${source}`);
             }
         }
         
