@@ -2,13 +2,13 @@
   "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.16/MicrosoftTeams.schema.json",
   "manifestVersion": "1.16",
   "version": "1.0.0",
-  "id": "kanban-app-12345",
-  "packageName": "com.kanban.app",
+  "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "packageName": "com.mfec.kanban",
   "developer": {
-    "name": "Kanban Team",
-    "websiteUrl": "https://example.com",
-    "privacyUrl": "https://example.com/privacy",
-    "termsOfUseUrl": "https://example.com/terms"
+    "name": "MFEC Development Team",
+    "websiteUrl": "https://sakanarmmfec.github.io/mfeckanban",
+    "privacyUrl": "https://sakanarmmfec.github.io/mfeckanban",
+    "termsOfUseUrl": "https://sakanarmmfec.github.io/mfeckanban"
   },
   "icons": {
     "color": "color.png",
@@ -16,21 +16,28 @@
   },
   "name": {
     "short": "Kanban Board",
-    "full": "Kanban Board for Teams"
+    "full": "Kanban Board for Microsoft Teams"
   },
   "description": {
     "short": "Simple Kanban board for task management",
-    "full": "A lightweight Kanban board application for managing tasks within Microsoft Teams"
+    "full": "A lightweight Kanban board application for managing tasks within Microsoft Teams with cloud storage support"
   },
-  "accentColor": "#FFFFFF",
+  "accentColor": "#0078d4",
   "staticTabs": [
     {
-      "entityId": "kanban",
+      "entityId": "kanban-board",
       "name": "Kanban Board",
       "contentUrl": "https://sakanarmmfec.github.io/mfeckanban/kanban.html",
-      "scopes": ["personal", "groupchat", "team"]
+      "scopes": ["team"]
     }
   ],
-  "permissions": ["identity", "messageTeamMembers"],
+  "configurableTabs": [
+    {
+      "configurationUrl": "https://sakanarmmfec.github.io/mfeckanban/kanban.html",
+      "canUpdateConfiguration": true,
+      "scopes": ["team", "groupchat"]
+    }
+  ],
+  "permissions": ["identity"],
   "validDomains": ["sakanarmmfec.github.io"]
 }

@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Teams Manifest Validator</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; max-width: 800px; margin: 0 auto; }
+        .validator { background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0; }
+        textarea { width: 100%; height: 300px; font-family: monospace; }
+        button { background: #0078d4; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; margin: 5px; }
+        .result { margin: 10px 0; padding: 10px; border-radius: 4px; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .warning { background: #fff3cd; color: #856404; }
+    </style>
+</head>
+<body>
+    <h1>Teams Manifest Validator</h1>
+    
+    <div class="validator">
+        <h3>Validate manifest.json</h3>
+        <textarea id="manifestJson" placeholder="Paste your manifest.json content here..."></textarea>
+        <br>
+        <button onclick="validateManifest()">Validate Manifest</button>
+        <button onclick="loadCurrentManifest()">Load Current Manifest</button>
+        <button onclick="downloadManifest()">Download Fixed Manifest</button>
+        
+        <div id="validationResult"></div>
+    </div>
+
+    <div class="validator">
+        <h3>Current Working Manifest</h3>
+        <pre id="workingManifest"></pre>
+    </div>
+
+    <script>
+        const workingManifest = {
+            "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.16/MicrosoftTeams.schema.json",
+            "manifestVersion": "1.16",
+            "version": "1.0.0",
+            "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+            "packageName": "com.mfec.kanban",
+            "developer": {
+                "name": "MFEC Development Team",
+                "websiteUrl": "https://sakanarmmfec.github.io/mfeckanban",
+                "privacyUrl": "https://sakanarmmfec.github.io/mfeckanban",
+                "termsOfUseUrl": "https://sakanarmmfec.github.io/mfeckanban"
+            },
+            "icons": {
+                "color": "color.png",
+                "outline": "outline.png"
+            },
+            "name": {
+                "short": "Kanban Board",
+                "full": "Kanban Board for Microsoft Teams"
+            },
+            "description": {
+                "short": "Simple Kanban board for task management",
+                "full": "A lightweight Kanban board application for managing tasks within Microsoft Teams with cloud storage support"
+            },
+            "accentColor": "#0078d4",
+            "staticTabs": [
+                {
+                    "entityId": "kanban-board",
+                    "name": "Kanban Board",
+                    "contentUrl": "https://sakanarmmfec.github.io/mfeckanban/kanban.html",
+                    "scopes": ["team"]
+                }
+            ],
+            "configurableTabs": [
+                {
+                    "configurationUrl": "https://sakanarmmfec.github.io/mfeckanban/kanban.html",
+                    "canUpdateConfiguration": true,
+                    "scopes": ["team", "groupchat"]
+                }
+            ],
+            "permissions": ["identity"],
+            "validDomains": ["sakanarmmfec.github.io"]
+        };
+
+        function loadCurrentManifest() {
+            document.getElementById('manifestJson').value = JSON.stringify(workingManifest, null, 2);
+            document.getElementById('workingManifest').textContent = JSON.stringify(workingManifest, null, 2);
+        }
+
+        function validateManifest() {
+            const manifestText = document.getElementById('manifestJson').value;
+            const resultDiv = document.getElementById('validationResult');
+            
+            if (!manifestText.trim()) {
+                showResult('error', 'Please paste manifest.json content');
+                return;
+            }
+
+            try {
+                const manifest = JSON.parse(manifestText);
+                const errors = [];
+                const warnings = [];
+
+                // Required fields validation
+                const requiredFields = [
+                    'manifestVersion', 'version', 'id', 'packageName', 
+                    'developer', 'icons', 'name', 'description', 'accentColor'
+                ];
+
+                requiredFields.forEach(field => {
+                    if (!manifest[field]) {
+                        errors.push(`Missing required field: ${field}`);
+                    }
+                });
+
+                // Developer validation
+                if (manifest.developer) {
+                    const devRequired = ['name', 'websiteUrl', 'privacyUrl', 'termsOfUseUrl'];
+                    devRequired.forEach(field => {
+                        if (!manifest.developer[field]) {
+                            errors.push(`Missing developer.${field}`);
+                        }
+                    });
+                }
+
+                // Icons validation
+                if (manifest.icons) {
+                    if (!manifest.icons.color) errors.push('Missing icons.color');
+                    if (!manifest.icons.outline) errors.push('Missing icons.outline');
+                }
+
+                // Name validation
+                if (manifest.name) {
+                    if (!manifest.name.short) errors.push('Missing name.short');
+                    if (!manifest.name.full) errors.push('Missing name.full');
+                    if (manifest.name.short && manifest.name.short.length > 30) {
+                        warnings.push('name.short should be 30 characters or less');
+                    }
+                }
+
+                // Description validation
+                if (manifest.description) {
+                    if (!manifest.description.short) errors.push('Missing description.short');
+                    if (!manifest.description.full) errors.push('Missing description.full');
+                    if (manifest.description.short && manifest.description.short.length > 80) {
+                        warnings.push('description.short should be 80 characters or less');
+                    }
+                }
+
+                // Accent color validation
+                if (manifest.accentColor && !manifest.accentColor.match(/^#[0-9A-Fa-f]{6}$/)) {
+                    errors.push('accentColor must be a valid hex color (e.g., #0078d4)');
+                }
+
+                // Valid domains validation
+                if (!manifest.validDomains || !Array.isArray(manifest.validDomains)) {
+                    errors.push('validDomains must be an array');
+                }
+
+                // Show results
+                if (errors.length === 0) {
+                    showResult('success', `✅ Manifest is valid! ${warnings.length > 0 ? `\n\nWarnings:\n${warnings.join('\n')}` : ''}`);
+                } else {
+                    showResult('error', `❌ Validation failed:\n${errors.join('\n')}${warnings.length > 0 ? `\n\nWarnings:\n${warnings.join('\n')}` : ''}`);
+                }
+
+            } catch (error) {
+                showResult('error', `❌ Invalid JSON: ${error.message}`);
+            }
+        }
+
+        function showResult(type, message) {
+            const resultDiv = document.getElementById('validationResult');
+            resultDiv.className = `result ${type}`;
+            resultDiv.textContent = message;
+        }
+
+        function downloadManifest() {
+            const manifestText = document.getElementById('manifestJson').value || JSON.stringify(workingManifest, null, 2);
+            const blob = new Blob([manifestText], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'manifest.json';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // Load working manifest on page load
+        loadCurrentManifest();
+    </script>
+</body>
+</html>
