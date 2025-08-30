@@ -190,6 +190,12 @@
         // Load data from SharePoint or localStorage
         async function loadData() {
             try {
+                // Load lists first
+                const savedLists = localStorage.getItem('kanban-lists');
+                if (savedLists) {
+                    lists = JSON.parse(savedLists);
+                }
+                
                 if (accessToken && teamsContext?.sharePointSite) {
                     await createSharePointList();
                     const result = await callSharePointAPI('');
@@ -501,6 +507,13 @@
         async function initApp() {
             await initTeams();
             await loadData();
+            
+            // Ensure we have default lists if none exist
+            if (lists.length === 0) {
+                lists = ['📋 Backlog', '🔄 In Progress', '👀 Review', '✅ Done'];
+                localStorage.setItem('kanban-lists', JSON.stringify(lists));
+            }
+            
             initBoard();
             addSampleCards();
         }
