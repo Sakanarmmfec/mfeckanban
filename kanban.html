@@ -78,6 +78,7 @@
 <body>
     <div class="header">
         <h1>📋 DIS Kanban Board</h1>
+        <div style="font-size: 12px; color: rgba(255,255,255,0.8);">💡 DELETE: Triple-click OR Hold 2sec OR Right-click | EDIT: Double-click</div>
         <button onclick="addNewList()">+ Add List</button>
         <button onclick="openConfigModal()">⚙️ Configuration</button>
     </div>
@@ -307,7 +308,7 @@
                     <button class="delete-card">&times;</button>
                 </div>
                 ${labels}
-                <div class="card-title">${card.title}</div>
+                <div class="card-title" title="Double-click to edit, Triple-click to delete">${card.title}</div>
                 <div class="card-meta">
                     ${date}
                     <div class="card-members">${member}</div>
@@ -343,39 +344,75 @@
                 console.error('Delete button not found for card:', card.id);
             }
             
-            // Card click handlers
-            let clickTimeout;
+            // Simple click counter for delete
+            let clickCount = 0;
+            let clickTimer = null;
+            
             cardEl.onclick = (e) => {
                 if (e.target.classList.contains('delete-card')) {
-                    return; // Let delete button handle this
+                    return;
                 }
                 
                 hideContextMenu();
+                clickCount++;
                 
-                // Single click - select/deselect card
-                clearTimeout(clickTimeout);
-                clickTimeout = setTimeout(() => {
-                    if (e.ctrlKey || e.metaKey) {
-                        // Ctrl+click to select/deselect
-                        cardEl.classList.toggle('selected');
-                        updateDeleteButton();
-                    } else {
-                        // Regular click - edit card
+                if (clickTimer) {
+                    clearTimeout(clickTimer);
+                }
+                
+                clickTimer = setTimeout(() => {
+                    if (clickCount === 1) {
+                        // Single click - select
+                        if (e.ctrlKey || e.metaKey) {
+                            cardEl.classList.toggle('selected');
+                            updateDeleteButton();
+                        }
+                    } else if (clickCount === 2) {
+                        // Double click - edit
                         editCard(card, cardEl);
+                    } else if (clickCount >= 3) {
+                        // Triple click - delete
+                        console.log('Triple click detected - deleting card');
+                        if (confirm(`DELETE CARD: "${card.title}"?\n\nTriple-click detected!`)) {
+                            performCardDelete(card.id, card.title, 'triple-click');
+                        }
                     }
-                }, 200);
+                    clickCount = 0;
+                }, 400);
+            };
+            
+            // Long press for mobile/Teams
+            let pressTimer = null;
+            
+            cardEl.onmousedown = (e) => {
+                if (e.target.classList.contains('delete-card')) return;
+                
+                pressTimer = setTimeout(() => {
+                    console.log('Long press detected - showing delete option');
+                    if (confirm(`LONG PRESS DELETE: "${card.title}"?\n\nHold mouse button for 2 seconds detected!`)) {
+                        performCardDelete(card.id, card.title, 'long-press');
+                    }
+                }, 2000);
+            };
+            
+            cardEl.onmouseup = () => {
+                if (pressTimer) {
+                    clearTimeout(pressTimer);
+                    pressTimer = null;
+                }
+            };
+            
+            cardEl.onmouseleave = () => {
+                if (pressTimer) {
+                    clearTimeout(pressTimer);
+                    pressTimer = null;
+                }
             };
             
             // Right click - context menu
             cardEl.oncontextmenu = (e) => {
                 e.preventDefault();
                 showContextMenu(e, card, cardEl);
-            };
-            
-            // Double click - edit card
-            cardEl.ondblclick = (e) => {
-                clearTimeout(clickTimeout);
-                editCard(card, cardEl);
             };
             
             cardEl.ondragstart = (e) => {
