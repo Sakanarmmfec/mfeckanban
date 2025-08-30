@@ -286,11 +286,11 @@
         
         function createAddListButton() {
             const board = document.getElementById('board');
-            const addList = document.createElement('div');
-            addList.className = 'add-list';
-            addList.innerHTML = '+ Add another list';
-            addList.onclick = addList;
-            board.appendChild(addList);
+            const addListEl = document.createElement('div');
+            addListEl.className = 'add-list';
+            addListEl.innerHTML = '+ Add another list';
+            addListEl.onclick = addList;
+            board.appendChild(addListEl);
         }
         
         function addList() {
