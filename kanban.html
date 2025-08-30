@@ -84,7 +84,7 @@
 <body>
     <div class="header">
         <h1>📋 DIS Kanban Board</h1>
-        <div style="font-size: 12px; color: rgba(255,255,255,0.8);">💡 DELETE: X button OR Triple-click OR Hold 2sec OR Right-click | EDIT: Double-click</div>
+        <div style="font-size: 12px; color: rgba(255,255,255,0.8);">💡 DELETE: X button OR Triple-click OR Hold 2sec OR Right-click | EDIT: Click</div>
         <button onclick="addNewList()">+ Add List</button>
         <button onclick="openConfigModal()">⚙️ Configuration</button>
         <button onclick="showDebugInfo()" style="font-size: 11px;">🔍 Debug</button>
@@ -323,7 +323,7 @@
                     <button class="delete-card" data-card-id="${card.id}" data-card-title="${card.title}">&times;</button>
                 </div>
                 ${labels}
-                <div class="card-title" title="Double-click to edit, Triple-click to delete">${card.title}</div>
+                <div class="card-title" title="Click to edit, Triple-click to delete">${card.title}</div>
                 <div class="card-meta">
                     ${date}
                     <div class="card-members">${member}</div>
@@ -368,14 +368,14 @@
                 
                 clickTimer = setTimeout(() => {
                     if (clickCount === 1) {
-                        // Single click - select
+                        // Single click - edit
+                        editCard(card, cardEl);
+                    } else if (clickCount === 2) {
+                        // Double click - select
                         if (e.ctrlKey || e.metaKey) {
                             cardEl.classList.toggle('selected');
                             updateDeleteButton();
                         }
-                    } else if (clickCount === 2) {
-                        // Double click - edit
-                        editCard(card, cardEl);
                     } else if (clickCount >= 3) {
                         // Triple click - delete
                         console.log('Triple click detected - deleting card');
